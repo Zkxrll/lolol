@@ -215,15 +215,15 @@ __ZkxHubElevateIdentity()
 -- Shared module registry
 -- -----------------------------------------------------------------------------
 -- The build script concatenates every module into one file. Each one is emitted
--- as `__ZkxHub_shared.<name> = function() ... end` at the injection marker
+-- as `__kicia_hook_shared.<name> = function() ... end` at the injection marker
 -- below, and RequireSharedModule runs it once and caches the result -- the same
 -- contract as Roblox's require(), without needing real ModuleScripts.
-local __ZkxHub_shared = {}
+local __kicia_hook_shared = {}
 
 local __shared_module_cache = {}
 
 local function RequireSharedModule(name)
-    if type(__ZkxHub_shared) ~= 'table' then
+    if type(__kicia_hook_shared) ~= 'table' then
         error('Missing shared module table')
     end
 
@@ -232,7 +232,7 @@ local function RequireSharedModule(name)
         return cached
     end
 
-    local loader = __ZkxHub_shared[name]
+    local loader = __kicia_hook_shared[name]
     if type(loader) ~= 'function' then
         error('Missing shared module: ' .. tostring(name))
     end
@@ -248,7 +248,7 @@ end
 local Library = nil
 local ErrorReporter = nil
 
-__ZkxHub_shared.obsidian_icons = function()
+__kicia_hook_shared.obsidian_icons = function()
 -- Vendored from lucide-roblox-direct e8b0019ebd7e18c455bbbd720ed7b610bc6675f7; code is bundled, PNG assets remain runtime-fetched, inline type annotations removed.
 local Lucide = {}
 
@@ -332,7 +332,7 @@ end
 return Lucide
 end
 
-__ZkxHub_shared.obsidian_library = function()
+__kicia_hook_shared.obsidian_library = function()
 -- Vendored from Obsidian b4523805727561499b5b8206e14590371923f343.
 -- Local changes: GetMouse removed, Lucide icon data bundled inline, standalone modifier keybinds restored, inline type annotations removed.
 local cloneref = (cloneref or clonereference or function(instance)
@@ -12397,7 +12397,7 @@ getgenv().Library = Library
 return Library
 end
 
-__ZkxHub_shared.obsidian_save_manager = function()
+__kicia_hook_shared.obsidian_save_manager = function()
 -- Vendored from Obsidian b4523805727561499b5b8206e14590371923f343; inline type annotations removed.
 local cloneref = (cloneref or clonereference or function(instance)
     return instance
@@ -13347,7 +13347,7 @@ SaveManager:BuildFolderTree()
 return SaveManager
 end
 
-__ZkxHub_shared.obsidian_theme_manager = function()
+__kicia_hook_shared.obsidian_theme_manager = function()
 -- Vendored from Obsidian b4523805727561499b5b8206e14590371923f343; inline type annotations removed.
 local cloneref = (cloneref or clonereference or function(instance)
     return instance
@@ -14257,7 +14257,7 @@ getgenv().ObsidianThemeManager = ThemeManager
 return ThemeManager
 end
 
-__ZkxHub_shared.script_paths = function()
+__kicia_hook_shared.script_paths = function()
 -- =============================================================================
 --  Paths - on-disk storage and UI preferences
 -- =============================================================================
@@ -14450,7 +14450,7 @@ end
 return module
 end
 
-__ZkxHub_shared.connection_registry = function()
+__kicia_hook_shared.connection_registry = function()
 local module = {}
 
 local function disconnect_handle(handle)
@@ -14524,7 +14524,7 @@ end
 return module
 end
 
-__ZkxHub_shared.ui_settings = function()
+__kicia_hook_shared.ui_settings = function()
 local module = {}
 
 local DEFAULT_CONFIG_NAMES = { 'Legit', 'Rage' }
@@ -15059,7 +15059,7 @@ end
 return module
 end
 
-__ZkxHub_shared.game_bootstrap = function()
+__kicia_hook_shared.game_bootstrap = function()
 local module = {}
 
 local function elevate_ui_identity()
@@ -15255,7 +15255,7 @@ end
 return module
 end
 
-__ZkxHub_shared.rivals_ragebot_kernel = function()
+__kicia_hook_shared.rivals_ragebot_kernel = function()
 -- RivalsRagebotKernel.lua
 -- The ragebot, lifted verbatim out of the RIVALS feature module into its own
 -- shared module so it can be read (and lifted out) on its own. It runs as plain
@@ -15269,7 +15269,7 @@ __ZkxHub_shared.rivals_ragebot_kernel = function()
 -- so the kernel works wherever it is emitted.
 --
 -- It fires the fighter combat remote directly and uses metatable / getgc / debug
--- surfaces. That is ZkxHub's original method, reproduced rather than softened.
+-- surfaces. That is Kicia's original method, reproduced rather than softened.
 return {
     init = function(ctx)
         local RivalsRuntimeBridge = ctx.RivalsRuntimeBridge
@@ -15279,9 +15279,9 @@ return {
         local GetChar = ctx.GetChar
         local GetRoot = ctx.GetRoot
         local __ZkxHub_genv = ctx.Genv
-        -- __ZkxHub_RAGEBOT_BEGIN__
-            local ZkxHubRagebot = {}
-            RivalsRuntimeBridge.ZkxHubRagebot = ZkxHubRagebot
+        -- __KICIA_RAGEBOT_BEGIN__
+            local KiciaRagebot = {}
+            RivalsRuntimeBridge.KiciaRagebot = KiciaRagebot
 
             local RunService = game:GetService('RunService')
             local HttpServiceRB = cloneref(game:GetService('HttpService'))
@@ -15313,7 +15313,7 @@ return {
                 end
             end
 
-            -- ---- settings (read live from the Obsidian controls; ZkxHub defaults as fallback) ----
+            -- ---- settings (read live from the Obsidian controls; Kicia defaults as fallback) ----
             local function optValue(id, default)
                 local o = Options and Options[id]
                 if o and o.Value ~= nil then
@@ -15341,10 +15341,10 @@ return {
                 RandomBaseRadius = function() return optValue('P8S4S4', 100) end,
                 RandomRadiusFactor = function() return optValue('P8S4S5', 0.5) end,
                 RandomAnchorFromCharacter = function() return togValue('P8S4T8', false) end,
-                -- ProjectileBreaker has no ZkxHub UI; RepositionInterval keeps ZkxHub's default.
+                -- ProjectileBreaker has no Kicia UI; RepositionInterval keeps Kicia's default.
                 RepositionInterval = function() return 0.3 end,
             }
-            -- ZkxHub's ProjectileBreaker depth constants (config present in ZkxHub; no UI slider).
+            -- Kicia's ProjectileBreaker depth constants (config present in Kicia; no UI slider).
             local PB_DEPTH_FORWARD = { Min = 0, Max = 4 }
             local PB_DEPTH_FORWARD_FREQ = 5
             local PB_DEPTH_UP = { Min = 0, Max = 5.5 }
@@ -15487,7 +15487,7 @@ return {
                 return nil
             end
 
-            -- ---- firing transport (ZkxHub t157/t16, lines 73511 / 88523 / 88535) ----------
+            -- ---- firing transport (Kicia t157/t16, lines 73511 / 88523 / 88535) ----------
             local function fireGun(objectId, isRaycast, aim1, aim2, hitboxHead, extra)
                 local remote = resolveUseItemRemote()
                 local token = enc('StartShooting')
@@ -15514,7 +15514,7 @@ return {
             end
             local function fireMeleeHeavy(objectId, a, b, c, d)
                 local remote = resolveUseItemRemote()
-                local token = enc('StartAiming') -- ZkxHub HeavyAttackEncoded uses StartAiming
+                local token = enc('StartAiming') -- Kicia HeavyAttackEncoded uses StartAiming
                 local anim = enc('HeavyAttackAnimation1')
                 if not remote or not token or not anim or not objectId then
                     return
@@ -15563,7 +15563,7 @@ return {
                 end
                 return reserve
             end
-            -- ZkxHub t157:IsReloading (lines 73560-73573): _reload_cooldown OR _shoot_cooldown_no_ammo.
+            -- Kicia t157:IsReloading (lines 73560-73573): _reload_cooldown OR _shoot_cooldown_no_ammo.
             local function itemIsReloading(item)
                 local now = tick()
                 local cooldown = rawget(item, '_reload_cooldown')
@@ -15573,19 +15573,19 @@ return {
                 local noAmmoCooldown = rawget(item, '_shoot_cooldown_no_ammo')
                 return type(noAmmoCooldown) == 'number' and now < noAmmoCooldown
             end
-            -- ZkxHub t157:IsMagFull (line 73575): Info.MaxAmmo <= current ammo.
+            -- Kicia t157:IsMagFull (line 73575): Info.MaxAmmo <= current ammo.
             local function itemIsMagFull(item)
                 local info = itemInfo(item)
                 local maxAmmo = info and rawget(info, 'MaxAmmo')
                 return type(maxAmmo) == 'number' and maxAmmo <= itemAmmo(item)
             end
-            -- ZkxHub t157:IsEquipped (line 73501): the item's own IsEquipped field - the same
+            -- Kicia t157:IsEquipped (line 73501): the item's own IsEquipped field - the same
             -- read the game's Items modules (Minigun, Riot Shield) use. The fighter-side
-            -- Data.EquippedItemID compare it replaced never matched ZkxHub and is gone.
+            -- Data.EquippedItemID compare it replaced never matched Kicia and is gone.
             local function itemIsEquipped(item)
                 return rawget(item, 'IsEquipped')
             end
-            -- ZkxHub t157:Equip (lines 73493-73499): no-op when equipped, then
+            -- Kicia t157:Equip (lines 73493-73499): no-op when equipped, then
             -- item.ClientFighter:EquipItem(index). ClientFighter lives on the ITEM (the
             -- LocalFighter IS a ClientFighter and has no such field; live-verified),
             -- and index is the fighter's Items-table key - the exact value the game's
@@ -15599,7 +15599,7 @@ return {
                     pcall(function() clientFighter:EquipItem(index) end)
                 end
             end
-            -- ZkxHub t157:Reload guard (lines 73539-73546).
+            -- Kicia t157:Reload guard (lines 73539-73546).
             local function reloadItem(item)
                 if itemIsReloading(item) or itemAmmoReserve(item) <= 0 or itemIsMagFull(item) then
                     return
@@ -15625,7 +15625,7 @@ return {
             local PITCH_ABOVE = -math.pi / 2                                               -- v140
             local PITCH_BELOW = math.pi / 2                                                -- v141
 
-            -- Riot-Shield-aware above/below classifier (ZkxHub ia(), lines 151550-151570).
+            -- Riot-Shield-aware above/below classifier (Kicia ia(), lines 151550-151570).
             -- "None" for shield-less targets (common case) folds to Above.  Enemy
             -- itemObserver/camera are best-effort on this build; shield-less path is exact.
             local function classifyAboveBelow(target)
@@ -15661,7 +15661,7 @@ return {
                 return classifyAboveBelow(target) ~= 'Below'
             end
 
-            -- ---- root virtualization (ZkxHub t201, lines 145034-145080) -------------------
+            -- ---- root virtualization (Kicia t201, lines 145034-145080) -------------------
             local RootDesync = {}
             RootDesync.__index = RootDesync
             function RootDesync.new(rootPart)
@@ -15703,7 +15703,7 @@ return {
                 pcall(function() RunService:UnbindFromRenderStep(self._boundId) end)
             end
 
-            -- ---- view-angle driver (ZkxHub t1141, lines 196889-197137) --------------------
+            -- ---- view-angle driver (Kicia t1141, lines 196889-197137) --------------------
             -- Hooks ClientFighterCharacterJoints.Update + FighterController._CameraReplicationLoop
             -- to inject a spoofed CameraRotationRaw so the replicated camera does not stare at the
             -- void.  Two deobfuscator artifacts are reconstructed to their unambiguous intent
@@ -15883,7 +15883,7 @@ return {
                 end
             end
 
-            -- ---- character controller wrapper (ZkxHub t4, lines 25419-25541) --------------
+            -- ---- character controller wrapper (Kicia t4, lines 25419-25541) --------------
             local CharacterController = {}
             CharacterController.__index = CharacterController
             function CharacterController.new(rootPart)
@@ -15918,8 +15918,8 @@ return {
                 end
             end
 
-            -- ---- forced-crouch state hook (ZkxHub t192, lines 12022-12081, simplified) -----
-            -- ZkxHub additionally installs a dummy _UpdateServerState to suppress the game's
+            -- ---- forced-crouch state hook (Kicia t192, lines 12022-12081, simplified) -----
+            -- Kicia additionally installs a dummy _UpdateServerState to suppress the game's
             -- own conflicting sends; the essential forcing is firing UpdateState directly.
             local StateHook = {}
             StateHook.__index = StateHook
@@ -15950,7 +15950,7 @@ return {
                 end
             end
 
-            -- ---- part glue (ZkxHub t116, lines 150715-150820) -----------------------------
+            -- ---- part glue (Kicia t116, lines 150715-150820) -----------------------------
             local VOID_CFRAME = CFrame.new(
                 math.random(-100000, -10000),
                 100000,
@@ -16040,7 +16040,7 @@ return {
                 table.clear(self._bindings)
             end
 
-            -- ---- enemy target list + validity (ZkxHub t190, lines 92617-92664) ------------
+            -- ---- enemy target list + validity (Kicia t190, lines 92617-92664) ------------
             local function isEnemyPlayer(player)
                 if player == nil or player == LPRB then
                     return false
@@ -16134,7 +16134,7 @@ return {
                 return false
             end
 
-            -- ---- weapon selection (ZkxHub t34.getAction, lines 122419-122490) -------------
+            -- ---- weapon selection (Kicia t34.getAction, lines 122419-122490) -------------
             local function itemCategory(slotIndex)
                 if slotIndex == 1 then
                     return 'Primary'
@@ -16164,9 +16164,9 @@ return {
                     return nil
                 end
                 local onEmpty = Setting.OnEmpty()
-                local priorityList = {} -- ZkxHub default Priority = {} (all equal; first-found wins)
+                local priorityList = {} -- Kicia default Priority = {} (all equal; first-found wins)
                 -- The slot is the Items-table key (1=Primary, 2=Secondary, 3=Melee - the game's
-                -- own EquipPrimary input is EquipItem(1)). ZkxHub's registry passes the same key
+                -- own EquipPrimary input is EquipItem(1)). Kicia's registry passes the same key
                 -- into its wrapper as .index; ClientItems carry no index field of their own.
                 local bestAttack, bestAttackPri, bestAttackIndex = nil, math.huge, nil
                 local bestSwap, bestSwapPri, bestSwapIndex = nil, math.huge, nil
@@ -16219,7 +16219,7 @@ return {
                 return { type = 'Attack', item = bestAttack, itemType = itemType(bestAttack), index = bestAttackIndex }
             end
 
-            -- ---- shoot lock (ZkxHub t93, lines 65724-65750) -------------------------------
+            -- ---- shoot lock (Kicia t93, lines 65724-65750) -------------------------------
             local ShootLock = {}
             ShootLock.__index = ShootLock
             function ShootLock.new()
@@ -16240,7 +16240,7 @@ return {
                 self._lockedUntil = nil
             end
 
-            -- ---- spatial limit gate (ZkxHub t98, lines 142617-142668) ---------------------
+            -- ---- spatial limit gate (Kicia t98, lines 142617-142668) ---------------------
             local SPATIAL_BOUND = 4194304
             local function outOfSpatialBound(pos)
                 return SPATIAL_BOUND <= math.abs(pos.X) or SPATIAL_BOUND <= math.abs(pos.Y) or SPATIAL_BOUND <= math.abs(pos.Z)
@@ -16279,7 +16279,7 @@ return {
                 return true
             end
 
-            -- ---- defensive module (ZkxHub t156, lines 151628-151664) ----------------------
+            -- ---- defensive module (Kicia t156, lines 151628-151664) ----------------------
             local function localShieldStance(fighter)
                 local items = fighter and rawget(fighter, 'Items') or nil
                 if type(items) ~= 'table' then
@@ -16312,7 +16312,7 @@ return {
                 return { kind = 'Normalized', pitch = pitch, yaw = rbRandom:NextNumber(0, 360) }
             end
 
-            -- ---- evasion (ZkxHub f573 / f4230 / t167 / t103) ------------------------------
+            -- ---- evasion (Kicia f573 / f4230 / t167 / t103) ------------------------------
             local FAR_AXIS = 1073741824
             local function ringPoint(anchor, minR, maxR)
                 local angle = rbRandom:NextNumber(0, 2 * math.pi)
@@ -16344,7 +16344,7 @@ return {
                 return scatterFar(clientCF.Position, Setting.RandomAnchorFromCharacter(), Setting.RandomBaseRadius(), Setting.RandomRadiusFactor())
             end
             local function translocateEvade(clientCF, hasTargetsNow)
-                -- ZkxHub fallback (t103.compute): a far ring-scatter (v107(pos, 10000, 1e9)).
+                -- Kicia fallback (t103.compute): a far ring-scatter (v107(pos, 10000, 1e9)).
                 if not hasTargetsNow then
                     return ringPoint(clientCF.Position, 10000, 1000000000)
                 end
@@ -16387,7 +16387,7 @@ return {
                 end
                 return false
             end
-            -- ZkxHub's f6204 (surface descriptor from a part face) is erased; reconstructed as the
+            -- Kicia's f6204 (surface descriptor from a part face) is erased; reconstructed as the
             -- part's top-face frame - the only shape consistent with surfaceCFrame's fields.
             local function describeSurface(part)
                 local cf = part.CFrame
@@ -16493,7 +16493,7 @@ return {
                 self._lastBreakSurface = nil
             end
 
-            -- ---- firing strategies (ZkxHub t96 hitscan / t98 melee) -----------------------
+            -- ---- firing strategies (Kicia t96 hitscan / t98 melee) -----------------------
             local function farMiss()
                 return CFrame.new(
                     math.random(-1000000, 1000000),
@@ -16611,7 +16611,7 @@ return {
                 end
             end
 
-            -- ---- FFlag environment toggles (ZkxHub SetEnabled, lines 63538-63571) ----------
+            -- ---- FFlag environment toggles (Kicia SetEnabled, lines 63538-63571) ----------
             local ORIGINAL_FALLEN_PARTS_HEIGHT = nil
             local function applyEnabledFFlags(enabled)
                 if enabled and ORIGINAL_FALLEN_PARTS_HEIGHT == nil then
@@ -16627,7 +16627,7 @@ return {
                 end
             end
 
-            -- ---- controller (ZkxHub t1, lines 63573-63758) --------------------------------
+            -- ---- controller (Kicia t1, lines 63573-63758) --------------------------------
             local Controller = {}
             Controller.__index = Controller
             function Controller.new()
@@ -16807,7 +16807,7 @@ return {
                 end
                 return controllerInstance
             end
-            function ZkxHubRagebot.IsEnabled()
+            function KiciaRagebot.IsEnabled()
                 if not togValue('P8S4T1', false) then
                     return false
                 end
@@ -16817,10 +16817,10 @@ return {
                 -- gate) instead of running the loop's side effects for nothing.
                 -- Checked after the toggle so the notice fires at enable, not at load;
                 -- cached because this runs per-frame.
-                if ZkxHubRagebot.CapsOk == nil then
-                    ZkxHubRagebot.CapsOk = __ZkxHub_genv.ZkxHubCaps.gate('Ragebot', 'getgc', 'sethiddenproperty')
+                if KiciaRagebot.CapsOk == nil then
+                    KiciaRagebot.CapsOk = __ZkxHub_genv.ZkxHubCaps.gate('Ragebot', 'getgc', 'sethiddenproperty')
                 end
-                if not ZkxHubRagebot.CapsOk then
+                if not KiciaRagebot.CapsOk then
                     return false
                 end
                 -- Practice / shooting range: the ragebot must never act here (target dummies, no real
@@ -16832,41 +16832,41 @@ return {
                 if localDuel and localDuel.Seeded and localDuel.IsInShootingRange == true then
                     return false
                 end
-                -- Enabled AND keybind-active (ZkxHub ObserveEnabledKeybind); Mode 'Always' -> always true.
+                -- Enabled AND keybind-active (Kicia ObserveEnabledKeybind); Mode 'Always' -> always true.
                 local keypicker = Options and Options.P8S4T1K
                 if keypicker and type(keypicker.GetState) == 'function' then
                     return keypicker:GetState() == true
                 end
                 return true
             end
-            function ZkxHubRagebot.Update(dt)
+            function KiciaRagebot.Update(dt)
                 local controller = ensureController()
-                local enabled = ZkxHubRagebot.IsEnabled()
+                local enabled = KiciaRagebot.IsEnabled()
                 if controller._enabled ~= enabled then
                     controller:SetEnabled(enabled)
                 end
                 controller:Update(dt or 0)
             end
-            function ZkxHubRagebot.Reset()
+            function KiciaRagebot.Reset()
                 if controllerInstance then
                     controllerInstance:_Reset()
                 end
             end
-            function ZkxHubRagebot.Destroy()
+            function KiciaRagebot.Destroy()
                 if controllerInstance then
                     controllerInstance:Destroy()
                     controllerInstance = nil
                 end
             end
-            RivalsRuntimeBridge.UpdateZkxHubRagebot = ZkxHubRagebot.Update
-            RivalsRuntimeBridge.ResetZkxHubRagebot = ZkxHubRagebot.Reset
-            RivalsRuntimeBridge.DestroyZkxHubRagebot = ZkxHubRagebot.Destroy
-        -- __ZkxHub_RAGEBOT_END__
+            RivalsRuntimeBridge.UpdateKiciaRagebot = KiciaRagebot.Update
+            RivalsRuntimeBridge.ResetKiciaRagebot = KiciaRagebot.Reset
+            RivalsRuntimeBridge.DestroyKiciaRagebot = KiciaRagebot.Destroy
+        -- __KICIA_RAGEBOT_END__
     end,
 }
 end
 
-__ZkxHub_shared.error_reporter = function()
+__kicia_hook_shared.error_reporter = function()
 -- =============================================================================
 --  ErrorReporter - local error surfacing
 -- =============================================================================
@@ -17610,8 +17610,8 @@ ErrorReporter.set_game(GameName)
                 PendingEnsureHooks = false,
                 NoSpreadClientItem = nil,
                 NoSpreadRemote = nil,
-                ZkxHubInputHookPrototype = nil,
-                ZkxHubInputHook = nil,
+                KiciaInputHookPrototype = nil,
+                KiciaInputHook = nil,
                 NoSpreadController = nil,
                 NoSpreadPlayerContext = nil,
                 GrenadeFuseController = nil,
@@ -19957,42 +19957,42 @@ ErrorReporter.set_game(GameName)
                 return fallback
             end
 
-            -- __ZkxHub_NOSPREAD_INPUT_HOOK_BEGIN__
-            -- Exact ZkxHub chain: InputBinding -> shared InputHook dispatch packet -> NoSpread.
-            RivalsModsState.ZkxHubInputBinding = {}
-            RivalsModsState.ZkxHubInputBinding.__index = RivalsModsState.ZkxHubInputBinding
+            -- __KICIA_NOSPREAD_INPUT_HOOK_BEGIN__
+            -- Exact Kicia chain: InputBinding -> shared InputHook dispatch packet -> NoSpread.
+            RivalsModsState.KiciaInputBinding = {}
+            RivalsModsState.KiciaInputBinding.__index = RivalsModsState.KiciaInputBinding
 
-            function RivalsModsState.ZkxHubInputBinding.new(handleSetEnabled, handleDestroy)
+            function RivalsModsState.KiciaInputBinding.new(handleSetEnabled, handleDestroy)
                 return setmetatable({
                     _handleSetEnabled = handleSetEnabled,
                     _handleDestroy = handleDestroy,
                     enabled = false,
-                }, RivalsModsState.ZkxHubInputBinding)
+                }, RivalsModsState.KiciaInputBinding)
             end
 
-            function RivalsModsState.ZkxHubInputBinding:SetHandler(handler)
+            function RivalsModsState.KiciaInputBinding:SetHandler(handler)
                 self.handler = handler
             end
 
-            function RivalsModsState.ZkxHubInputBinding:SetEnabled(enabled)
+            function RivalsModsState.KiciaInputBinding:SetEnabled(enabled)
                 self.enabled = enabled
                 self._handleSetEnabled(enabled)
             end
 
-            function RivalsModsState.ZkxHubInputBinding:Destroy()
+            function RivalsModsState.KiciaInputBinding:Destroy()
                 self._handleDestroy()
             end
 
-            RivalsModsState.ZkxHubInputHookErrorReporter = {}
-            RivalsModsState.ZkxHubInputHookErrorReporter.__index = RivalsModsState.ZkxHubInputHookErrorReporter
+            RivalsModsState.KiciaInputHookErrorReporter = {}
+            RivalsModsState.KiciaInputHookErrorReporter.__index = RivalsModsState.KiciaInputHookErrorReporter
 
-            function RivalsModsState.ZkxHubInputHookErrorReporter.new()
+            function RivalsModsState.KiciaInputHookErrorReporter.new()
                 return setmetatable({
                     _errors = {},
-                }, RivalsModsState.ZkxHubInputHookErrorReporter)
+                }, RivalsModsState.KiciaInputHookErrorReporter)
             end
 
-            function RivalsModsState.ZkxHubInputHookErrorReporter:ReportResult(result)
+            function RivalsModsState.KiciaInputHookErrorReporter:ReportResult(result)
                 if not result.ok then
                     table.insert(self._errors, result.error)
                     ReportRivalsRuntimeIssue('mods_no_spread_input_hook', result.error)
@@ -20000,11 +20000,11 @@ ErrorReporter.set_game(GameName)
                 return result
             end
 
-            function RivalsModsState.ZkxHubInputHookErrorReporter:Destroy()
+            function RivalsModsState.KiciaInputHookErrorReporter:Destroy()
                 table.clear(self._errors)
             end
 
-            function RivalsModsState.CreateZkxHubInputHookPrototype(clientItem, useItemRemote, decodeInput)
+            function RivalsModsState.CreateKiciaInputHookPrototype(clientItem, useItemRemote, decodeInput)
                 local cleanRemote = Instance.new('RemoteEvent')
                 local fireServerNative = clonefunction(cleanRemote.FireServer)
                 local voidOk = {
@@ -20023,7 +20023,7 @@ ErrorReporter.set_game(GameName)
 
                 function inputHookPrototype.new()
                     local inputHook = setmetatable({
-                        _errorReporter = RivalsModsState.ZkxHubInputHookErrorReporter.new(),
+                        _errorReporter = RivalsModsState.KiciaInputHookErrorReporter.new(),
                         _inputBindings = {},
                         _dummy = Color3.new(),
                     }, inputHookPrototype)
@@ -20064,7 +20064,7 @@ ErrorReporter.set_game(GameName)
 
                 function inputHookPrototype:Reserve()
                     local binding
-                    binding = RivalsModsState.ZkxHubInputBinding.new(
+                    binding = RivalsModsState.KiciaInputBinding.new(
                         function(enabled)
                             if enabled then
                                 self._errorReporter:ReportResult(self:_Load())
@@ -20125,7 +20125,7 @@ ErrorReporter.set_game(GameName)
                     end
 
                     -- Current RIVALS virtualizes this same dependency inside a
-                    -- table upvalue. ZkxHub's QuickAttackHook installs/restores
+                    -- table upvalue. Kicia's QuickAttackHook installs/restores
                     -- this VM shape through an exact bundle/key/original record.
                     if self._restore == nil then
                         for _, bundle in pairs(debug.getupvalues(inputMethod)) do
@@ -20184,25 +20184,25 @@ ErrorReporter.set_game(GameName)
                 return inputHookPrototype
             end
 
-            RivalsModsState.ZkxHubNoSpreadPrototype = {}
-            RivalsModsState.ZkxHubNoSpreadPrototype.__index = RivalsModsState.ZkxHubNoSpreadPrototype
+            RivalsModsState.KiciaNoSpreadPrototype = {}
+            RivalsModsState.KiciaNoSpreadPrototype.__index = RivalsModsState.KiciaNoSpreadPrototype
 
-            function RivalsModsState.ZkxHubNoSpreadPrototype.new(inputBinding, playerContext)
+            function RivalsModsState.KiciaNoSpreadPrototype.new(inputBinding, playerContext)
                 local noSpread = setmetatable({
                     _inputBinding = inputBinding,
                     _playerContext = playerContext,
-                }, RivalsModsState.ZkxHubNoSpreadPrototype)
+                }, RivalsModsState.KiciaNoSpreadPrototype)
                 inputBinding:SetHandler(function(packet)
                     noSpread:_HandleInput(packet)
                 end)
                 return noSpread
             end
 
-            function RivalsModsState.ZkxHubNoSpreadPrototype:SetEnabled(enabled)
+            function RivalsModsState.KiciaNoSpreadPrototype:SetEnabled(enabled)
                 self._inputBinding:SetEnabled(enabled)
             end
 
-            function RivalsModsState.ZkxHubNoSpreadPrototype:_HandleInput(packet)
+            function RivalsModsState.KiciaNoSpreadPrototype:_HandleInput(packet)
                 if packet.type ~= 'StartShooting' then
                     return
                 end
@@ -20219,21 +20219,21 @@ ErrorReporter.set_game(GameName)
                 end
             end
 
-            function RivalsModsState.ZkxHubNoSpreadPrototype:Destroy()
+            function RivalsModsState.KiciaNoSpreadPrototype:Destroy()
                 self._inputBinding:Destroy()
             end
 
-            -- Grenade Fuse: 1:1 port of ZkxHub's throwable fuse controller [118096]. Rides its own
+            -- Grenade Fuse: 1:1 port of Kicia's throwable fuse controller [118096]. Rides its own
             -- binding on the shared input hook. Cooks only (Info.CanCook). On the start input it
             -- caches the trajectory visual and, for Remove Fuse, nils the item's
             -- _cook_detonate_delay; on the finish input it rewrites the byte-3 fuse-time argument.
-            -- Remove Fuse also installs a replacer (ZkxHub's SetRemoveFuse does the same): the start-input
+            -- Remove Fuse also installs a replacer (Kicia's SetRemoveFuse does the same): the start-input
             -- nil fires after the game already armed the cook timer, so _EnsureStartThrowReplacer nils
             -- the same field one call earlier -- inside Throwable._StartThrow, before its task.delay check.
-            RivalsModsState.ZkxHubGrenadeFusePrototype = {}
-            RivalsModsState.ZkxHubGrenadeFusePrototype.__index = RivalsModsState.ZkxHubGrenadeFusePrototype
+            RivalsModsState.KiciaGrenadeFusePrototype = {}
+            RivalsModsState.KiciaGrenadeFusePrototype.__index = RivalsModsState.KiciaGrenadeFusePrototype
 
-            function RivalsModsState.ZkxHubGrenadeFusePrototype.new(inputBinding, playerContext)
+            function RivalsModsState.KiciaGrenadeFusePrototype.new(inputBinding, playerContext)
                 local grenadeFuse = setmetatable({
                     _inputBinding = inputBinding,
                     _playerContext = playerContext,
@@ -20243,22 +20243,22 @@ ErrorReporter.set_game(GameName)
                     _startThrowReplacerInstalled = false,
                     _throwablePrototype = nil,
                     _originalStartThrow = nil,
-                }, RivalsModsState.ZkxHubGrenadeFusePrototype)
+                }, RivalsModsState.KiciaGrenadeFusePrototype)
                 inputBinding:SetHandler(function(packet)
                     grenadeFuse:_HandleInput(packet)
                 end)
                 return grenadeFuse
             end
 
-            function RivalsModsState.ZkxHubGrenadeFusePrototype:SetEnabled(enabled)
+            function RivalsModsState.KiciaGrenadeFusePrototype:SetEnabled(enabled)
                 self._inputBinding:SetEnabled(enabled)
             end
 
-            function RivalsModsState.ZkxHubGrenadeFusePrototype:SetExplodeOn(explodeOn)
+            function RivalsModsState.KiciaGrenadeFusePrototype:SetExplodeOn(explodeOn)
                 self._explodeOn = explodeOn
             end
 
-            function RivalsModsState.ZkxHubGrenadeFusePrototype:SetRemoveFuse(removeFuse)
+            function RivalsModsState.KiciaGrenadeFusePrototype:SetRemoveFuse(removeFuse)
                 self._removeFuse = removeFuse
                 if removeFuse then
                     self:_EnsureStartThrowReplacer()
@@ -20267,14 +20267,14 @@ ErrorReporter.set_game(GameName)
                 end
             end
 
-            -- ZkxHub's SetRemoveFuse installs/destroys a replacer (its VM-obfuscated eU) alongside the
+            -- Kicia's SetRemoveFuse installs/destroys a replacer (its VM-obfuscated eU) alongside the
             -- start-input _cook_detonate_delay nil. On this build that nil is one throw too late: the game
             -- arms the cook timer inside Throwable._StartThrow (task.delay(_cook_detonate_delay, ...)),
             -- which runs before our input hook (it intercepts UseItem, i.e. replication) sees
             -- the throw. So our replacer wraps Throwable._StartThrow and nils the same field for that call,
             -- so the timer branch is skipped for every cook including a fresh grenade's first. Restored
             -- when Remove Fuse turns off. Field writes only -- no prints/logging on the prototype.
-            function RivalsModsState.ZkxHubGrenadeFusePrototype:_EnsureStartThrowReplacer()
+            function RivalsModsState.KiciaGrenadeFusePrototype:_EnsureStartThrowReplacer()
                 if self._startThrowReplacerInstalled then
                     return
                 end
@@ -20305,7 +20305,7 @@ ErrorReporter.set_game(GameName)
                 self._startThrowReplacerInstalled = true
             end
 
-            function RivalsModsState.ZkxHubGrenadeFusePrototype:_RestoreStartThrowReplacer()
+            function RivalsModsState.KiciaGrenadeFusePrototype:_RestoreStartThrowReplacer()
                 if not self._startThrowReplacerInstalled then
                     return
                 end
@@ -20317,12 +20317,12 @@ ErrorReporter.set_game(GameName)
                 self._originalStartThrow = nil
             end
 
-            -- ZkxHub f7799 [118070]: walk the trajectory segments to the impact sphere and return
+            -- Kicia f7799 [118070]: walk the trajectory segments to the impact sphere and return
             -- min(cap, (index - 2) * step) using the recovered _last_args slots 4 (step, default
             -- 0.05) and 6 (cap, default math.huge). Live-verified: the game's
             -- TrajectoryVisual._segments is a plain array of parts (the game iterates it with
             -- pairs), NOT a callable iterator -- so we walk it with next(), not segments(nil, key).
-            function RivalsModsState.ZkxHubGrenadeFusePrototype:_ComputeImpactTime(trajectoryVisual)
+            function RivalsModsState.KiciaGrenadeFusePrototype:_ComputeImpactTime(trajectoryVisual)
                 local lastArgs = rawget(trajectoryVisual, '_last_args')
                 local step = lastArgs[4]
                 if not step then
@@ -20348,7 +20348,7 @@ ErrorReporter.set_game(GameName)
                 return nil
             end
 
-            function RivalsModsState.ZkxHubGrenadeFusePrototype:_HandleInput(packet)
+            function RivalsModsState.KiciaGrenadeFusePrototype:_HandleInput(packet)
                 local packetType = packet.type
                 local isStart = packetType == 'StartShooting' or packetType == 'StartAiming'
                 local isFinish = packetType == 'FinishShooting' or packetType == 'FinishAiming'
@@ -20385,19 +20385,19 @@ ErrorReporter.set_game(GameName)
                 self._trajectoryVisual = nil
             end
 
-            function RivalsModsState.ZkxHubGrenadeFusePrototype:Destroy()
+            function RivalsModsState.KiciaGrenadeFusePrototype:Destroy()
                 self:_RestoreStartThrowReplacer()
                 self._inputBinding:Destroy()
             end
 
-            RivalsModsState.ZkxHubLocalFighterState = {}
-            RivalsModsState.ZkxHubLocalFighterState.__index = RivalsModsState.ZkxHubLocalFighterState
+            RivalsModsState.KiciaLocalFighterState = {}
+            RivalsModsState.KiciaLocalFighterState.__index = RivalsModsState.KiciaLocalFighterState
 
-            function RivalsModsState.ZkxHubLocalFighterState.new()
-                return setmetatable({}, RivalsModsState.ZkxHubLocalFighterState)
+            function RivalsModsState.KiciaLocalFighterState.new()
+                return setmetatable({}, RivalsModsState.KiciaLocalFighterState)
             end
 
-            function RivalsModsState.ZkxHubLocalFighterState:GetItems()
+            function RivalsModsState.KiciaLocalFighterState:GetItems()
                 local fighter = ResolveLocalFighter()
                 local items = type(fighter) == 'table' and rawget(fighter, 'Items') or nil
                 if type(items) == 'table' then
@@ -20406,7 +20406,7 @@ ErrorReporter.set_game(GameName)
                 return {}
             end
 
-            function RivalsModsState.ZkxHubLocalFighterState:GetItemById(objectId)
+            function RivalsModsState.KiciaLocalFighterState:GetItemById(objectId)
                 for _, item in next, self:GetItems() do
                     if objectId == rawget(rawget(item, 'Data'), 'ObjectID') then
                         return item
@@ -20457,9 +20457,9 @@ ErrorReporter.set_game(GameName)
                 return state.NoSpreadRemote
             end
 
-            function RivalsModsState.EnsureZkxHubInputHook()
+            function RivalsModsState.EnsureKiciaInputHook()
                 local state = RivalsModsState
-                if state.ZkxHubInputHook and state.NoSpreadController and state.GrenadeFuseController then
+                if state.KiciaInputHook and state.NoSpreadController and state.GrenadeFuseController then
                     return true
                 end
                 if type(setrawmetatable) ~= 'function'
@@ -20479,30 +20479,30 @@ ErrorReporter.set_game(GameName)
 
                 local playerContext = {
                     inner = {
-                        fighterState = RivalsModsState.ZkxHubLocalFighterState.new(),
+                        fighterState = RivalsModsState.KiciaLocalFighterState.new(),
                     },
                 }
 
                 local ok, inputHookOrError = pcall(function()
-                    local inputHookPrototype = state.ZkxHubInputHookPrototype
+                    local inputHookPrototype = state.KiciaInputHookPrototype
                     if inputHookPrototype == nil then
-                        inputHookPrototype = RivalsModsState.CreateZkxHubInputHookPrototype(
+                        inputHookPrototype = RivalsModsState.CreateKiciaInputHookPrototype(
                             clientItem,
                             remote,
                             function(encodedType)
                                 return rawget(fromEnum, encodedType)
                             end
                         )
-                        state.ZkxHubInputHookPrototype = inputHookPrototype
+                        state.KiciaInputHookPrototype = inputHookPrototype
                     end
                     local inputHook = inputHookPrototype.new()
-                    state.ZkxHubInputHook = inputHook
+                    state.KiciaInputHook = inputHook
                     state.NoSpreadPlayerContext = playerContext
-                    state.NoSpreadController = RivalsModsState.ZkxHubNoSpreadPrototype.new(
+                    state.NoSpreadController = RivalsModsState.KiciaNoSpreadPrototype.new(
                         inputHook:Reserve(),
                         playerContext
                     )
-                    state.GrenadeFuseController = RivalsModsState.ZkxHubGrenadeFusePrototype.new(
+                    state.GrenadeFuseController = RivalsModsState.KiciaGrenadeFusePrototype.new(
                         inputHook:Reserve(),
                         playerContext
                     )
@@ -20544,7 +20544,7 @@ ErrorReporter.set_game(GameName)
                 return true
             end
 
-            function RivalsModsState.RestoreZkxHubInputHook()
+            function RivalsModsState.RestoreKiciaInputHook()
                 local state = RivalsModsState
                 if state.NoSpreadController then
                     state.NoSpreadController:Destroy()
@@ -20552,17 +20552,17 @@ ErrorReporter.set_game(GameName)
                 if state.GrenadeFuseController then
                     state.GrenadeFuseController:Destroy()
                 end
-                if state.ZkxHubInputHook then
-                    state.ZkxHubInputHook:Destroy()
+                if state.KiciaInputHook then
+                    state.KiciaInputHook:Destroy()
                 end
                 state.NoSpreadController = nil
                 state.GrenadeFuseController = nil
                 state.NoSpreadPlayerContext = nil
-                state.ZkxHubInputHook = nil
+                state.KiciaInputHook = nil
                 state.NoSpreadClientItem = nil
                 state.NoSpreadRemote = nil
             end
-            -- __ZkxHub_NOSPREAD_INPUT_HOOK_END__
+            -- __KICIA_NOSPREAD_INPUT_HOOK_END__
 
             function RivalsModsState.StoreOriginalItemInfo(item)
                 local state = RivalsModsState
@@ -20851,7 +20851,7 @@ ErrorReporter.set_game(GameName)
                 local fighter = ResolveLocalFighter()
                 local items = fighter and type(fighter.Items) == 'table' and fighter.Items or {}
                 state.ApplyViewmodelMotionSuppression(items)
-                -- ZkxHub parity: the animation filters stop the track from ever starting,
+                -- Kicia parity: the animation filters stop the track from ever starting,
                 -- through the ViewModelAnimator.PlayAnimation replacement, instead of
                 -- reacting to AnimationPlayed and stopping a track the game already began.
                 RivalsRuntimeBridge.NativeRemovals.SyncAnimationHook()
@@ -21383,14 +21383,14 @@ ErrorReporter.set_game(GameName)
                 end
 
                 state.PendingEnsureHooks = false
-                -- Support notice only -- EnsureZkxHubInputHook already declines cleanly
+                -- Support notice only -- EnsureKiciaInputHook already declines cleanly
                 -- when the debug surface is missing (Solara/Xeno tier).
                 if IsRivalsModToggleEnabled('P4S1T3')
                     or IsRivalsModToggleEnabled('P4S1T6')
                     or IsRivalsModToggleEnabled('P4S1T7') then
                     __ZkxHub_genv.ZkxHubCaps.gate('No Spread / Grenade Fuse', 'debug.getupvalues', 'debug.setupvalue')
                 end
-                if RivalsModsState.EnsureZkxHubInputHook() then
+                if RivalsModsState.EnsureKiciaInputHook() then
                     RivalsModsState.SyncNoSpreadEnabled()
                     RivalsModsState.SyncGrenadeFuse()
                 end
@@ -21403,7 +21403,7 @@ ErrorReporter.set_game(GameName)
             function RivalsModsState.RestoreHooks()
                 local state = RivalsModsState
                 RivalsModsState.RestoreClientModifiers()
-                RivalsModsState.RestoreZkxHubInputHook()
+                RivalsModsState.RestoreKiciaInputHook()
                 local gunModule = state.GunModule
                 if gunModule then
                     if state.OriginalGunStartShooting then
@@ -21637,7 +21637,7 @@ ErrorReporter.set_game(GameName)
                     end
                 end
 
-                -- The ZkxHub ragebot (P8S4T1) is a self-contained teleport-to-void ragebot that
+                -- The Kicia ragebot (P8S4T1) is a self-contained teleport-to-void ragebot that
                 -- fires itself via the fighter combat remote; it does NOT drive Silent Aim / Triggerbot.
                 -- Kept decoupled so enabling the ragebot no longer force-activates them (which
                 -- would fight the ragebot's root virtualization).
@@ -22079,7 +22079,7 @@ ErrorReporter.set_game(GameName)
                 },
                 AtmosphereProperties = {'Color', 'Decay', 'Density', 'Offset', 'Glare', 'Haze'},
                 WeatherPresets = {
-                    -- ZkxHub's preset membership and textures are recovered exactly. The decompile erased
+                    -- Kicia's preset membership and textures are recovered exactly. The decompile erased
                     -- each entry's numeric particle spec, so these bounded values are explicit fallbacks.
                     Snow = {
                         {Texture = 'rbxassetid://119455261341623', BaseRate = 18, SpeedMin = 8, SpeedMax = 12, SizeStart = 0.025, SizeEnd = 0.05, TransparencyMax = 0.4, LifetimeMin = 4, LifetimeMax = 6, RotationMin = 0, RotationMax = 360, RotationSpeedMin = -25, RotationSpeedMax = 25, BaseSpread = 0.4, BaseAccelerationY = -3},
@@ -22116,7 +22116,7 @@ ErrorReporter.set_game(GameName)
                     BloomEffect = {
                         Toggle = 'P1S6T1',
                         Properties = {
-                            Intensity = {'P1S6S1', 0.4}, -- ZkxHub's serialized default was erased; 0.4 is the explicit fallback.
+                            Intensity = {'P1S6S1', 0.4}, -- Kicia's serialized default was erased; 0.4 is the explicit fallback.
                             Size = {'P1S6S2', 24},
                             Threshold = {'P1S6S3', 0.95},
                         },
@@ -22373,7 +22373,7 @@ ErrorReporter.set_game(GameName)
                     desired.ExposureCompensation = world.ReadOption('P1S4S4', 0)
                 end
                 if world.ReadToggle('P1S4T8', false) then
-                    -- ZkxHub's serialized Specular value was erased; 0 is the documented fallback.
+                    -- Kicia's serialized Specular value was erased; 0 is the documented fallback.
                     desired.EnvironmentSpecularScale = world.ReadOption('P1S4S5', 0)
                 end
                 if world.ReadToggle('P1S5T1', false) then
@@ -24390,7 +24390,7 @@ ErrorReporter.set_game(GameName)
                 visuals.RefreshAll()
             end
 
-            -- ZkxHub parity: native crosshair suppression rides the game's own
+            -- Kicia parity: native crosshair suppression rides the game's own
             -- Crosshair._Update hook instead of walking PlayerGui on a timer.
             function RivalsRuntimeBridge.ViewmodelVisuals.RestoreNativeCrosshairs()
                 RivalsRuntimeBridge.NativeRemovals.SetNativeCrosshairHidden(false)
@@ -24413,7 +24413,7 @@ ErrorReporter.set_game(GameName)
 
             function RivalsRuntimeBridge.ViewmodelVisuals.ResolveCrosshairPosition(deltaTime, center)
                 local visuals = RivalsRuntimeBridge.ViewmodelVisuals
-                -- ZkxHub resets the follow spring immediately while Follow Target is
+                -- Kicia resets the follow spring immediately while Follow Target is
                 -- disabled; ordinary custom-crosshair placement is never smoothed.
                 if not visuals.ReadToggle('P1S26T9') then
                     visuals.FollowPosition = center
@@ -24458,11 +24458,11 @@ ErrorReporter.set_game(GameName)
                     return
                 end
 
-                -- ZkxHub's active gate: the custom crosshair only draws while the game
+                -- Kicia's active gate: the custom crosshair only draws while the game
                 -- would show a native one - an equipped item with a live crosshair
                 -- object. In the lobby / unspawned / holding nothing there is no
                 -- equipped item, so the gui turns off. Native suppression stays armed
-                -- the whole time the toggle is on (ZkxHub arms it once in ApplyStatic).
+                -- the whole time the toggle is on (Kicia arms it once in ApplyStatic).
                 visuals.HideNativeCrosshairs()
                 if not RivalsRuntimeBridge.NativeRemovals.IsNativeCrosshairActive() then
                     if visuals.Crosshair and visuals.Crosshair.Gui then
@@ -24473,7 +24473,7 @@ ErrorReporter.set_game(GameName)
 
                 local crosshair = visuals.EnsureCrosshair()
                 crosshair.Gui.Enabled = true
-                -- ZkxHub's a5 position provider is exactly ViewportSize / 2. It does
+                -- Kicia's a5 position provider is exactly ViewportSize / 2. It does
                 -- not follow the game's cosmetic viewmodel-offset reticle, because
                 -- that offset grows sharply when ADS narrows the camera FOV.
                 local camera = Workspace.CurrentCamera
@@ -24591,7 +24591,7 @@ ErrorReporter.set_game(GameName)
                 visuals.LastReconcileAt = 0
             end
 
-            -- Direct ports of ZkxHub's removal techniques. Each one patches the game's
+            -- Direct ports of Kicia's removal techniques. Each one patches the game's
             -- own drawing path once per toggle flip and restores the captured original
             -- on disable/unload, so there is no scanning and no recurring cost.
             RivalsRuntimeBridge.NativeRemovals = {
@@ -24607,7 +24607,7 @@ ErrorReporter.set_game(GameName)
                     ReticleDirty = false,
                     Restore = nil,
                 },
-                -- nil means "leave the native value alone", matching ZkxHub's
+                -- nil means "leave the native value alone", matching Kicia's
                 -- _crosshairVisible / _hitmarkerVisible tri-state.
                 Crosshair = {
                     CrosshairVisible = nil,
@@ -24617,7 +24617,7 @@ ErrorReporter.set_game(GameName)
                 Animation = { Restore = nil },
             }
 
-            -- ZkxHub's sentinel: the "_Tracers" constant is repointed at a name that
+            -- Kicia's sentinel: the "_Tracers" constant is repointed at a name that
             -- resolves to a no-op on the same class, so the call still succeeds.
             -- Table fields, not locals: RIVALS top scope is at Luau's 200-local limit.
             RivalsRuntimeBridge.NativeRemovals.TracerSentinel = '_Tracers\0NoGunTracers'
@@ -24632,7 +24632,7 @@ ErrorReporter.set_game(GameName)
                 ViewModelAnimator = { 'Modules', 'ClientReplicatedClasses', 'ClientFighter', 'ClientItem', 'ClientViewModel', 'ViewModelAnimator' },
             }
 
-            -- ZkxHub's dummy animation track: the animator's real track is swapped for this
+            -- Kicia's dummy animation track: the animator's real track is swapped for this
             -- while the game's own PlayAnimation runs, so every piece of its bookkeeping
             -- still happens and nothing is actually played.
             RivalsRuntimeBridge.NativeRemovals.AnimationStub = {
@@ -24758,7 +24758,7 @@ ErrorReporter.set_game(GameName)
                 end
             end
 
-            -- ZkxHub's NoGameHitsound: the game's own hitmarker sound is played by
+            -- Kicia's NoGameHitsound: the game's own hitmarker sound is played by
             -- ClientViewModel.PlayHitmarkerSound; while Disable Game Sound is on,
             -- that method is swapped for a no-op so only the custom hit sound
             -- plays, and the exact original is put back on revert.
@@ -24785,7 +24785,7 @@ ErrorReporter.set_game(GameName)
                 end
             end
 
-            -- ZkxHub wraps Scope.SetActive so the overlay frames are corrected exactly
+            -- Kicia wraps Scope.SetActive so the overlay frames are corrected exactly
             -- when the scope turns on, using the scope object's own frame fields.
             function RivalsRuntimeBridge.NativeRemovals.EnsureScopeHook()
                 local scope = RivalsRuntimeBridge.NativeRemovals.Scope
@@ -24848,11 +24848,11 @@ ErrorReporter.set_game(GameName)
                 RivalsRuntimeBridge.NativeRemovals.EnsureScopeHook()
             end
 
-            -- ZkxHub wraps the game's own Crosshair._Update and re-asserts visibility
+            -- Kicia wraps the game's own Crosshair._Update and re-asserts visibility
             -- immediately after the native draw, so the native path keeps ownership and
             -- there is nothing to scan. The instance field is erased in the reference
             -- decompile; build 1035's _Update reads it as 'Frame', and its own constants
-            -- name Foreground / Background / Hitmarker in the same order ZkxHub writes.
+            -- name Foreground / Background / Hitmarker in the same order Kicia writes.
             function RivalsRuntimeBridge.NativeRemovals.EnsureCrosshairHook()
                 local crosshair = RivalsRuntimeBridge.NativeRemovals.Crosshair
                 if crosshair.Restore ~= nil then
@@ -24901,7 +24901,7 @@ ErrorReporter.set_game(GameName)
             -- The wrapper alone is not enough: the game's _Update is task.defer'd from
             -- state changes only (SetType / SetVisible / SetSpacing / SetTransparency /
             -- SetAppearance), so a crosshair already on screen never updates again and
-            -- the wrapper never gets a chance to hide it. ZkxHub pairs the hook with a
+            -- the wrapper never gets a chance to hide it. Kicia pairs the hook with a
             -- registry of every local item's Mouse.MouseCrosshair.Crosshair object and
             -- writes those frames directly on toggle; new items need no direct write
             -- because their creation Refresh runs _Update through the wrapper. The walk
@@ -24919,9 +24919,9 @@ ErrorReporter.set_game(GameName)
                 end
             end
 
-            -- ZkxHub's IsCrosshairActive: true while the equipped item resolves to a
+            -- Kicia's IsCrosshairActive: true while the equipped item resolves to a
             -- live native crosshair object. Equipped truth is the fighter's own
-            -- 'EquippedItem' field (the ClientItem table), the same read ZkxHub's item
+            -- 'EquippedItem' field (the ClientItem table), the same read Kicia's item
             -- layer uses. NOT fighter:Get('EquippedItem') - the replicated Data only
             -- carries EquippedItemID strings, so Get returns nil and the gate would
             -- never open (live-proven with Fists equipped).
@@ -24968,7 +24968,7 @@ ErrorReporter.set_game(GameName)
             end
 
             -- Restoring replays the game's own _Update once per live crosshair (identity
-            -- 2, like ZkxHub) so the native path repaints immediately instead of on its
+            -- 2, like Kicia) so the native path repaints immediately instead of on its
             -- next organic redraw. Uses the stored original while the hook still holds
             -- it; if the hook never installed, nothing was hidden and this no-ops.
             function RivalsRuntimeBridge.NativeRemovals.RevertCrosshairFrames()
@@ -25062,7 +25062,7 @@ ErrorReporter.set_game(GameName)
                 RivalsRuntimeBridge.NativeRemovals.SyncCrosshairHook()
             end
 
-            -- ZkxHub gates the animation filters on the animator's own owner chain, because a
+            -- Kicia gates the animation filters on the animator's own owner chain, because a
             -- class-level replacement sees every player's animator, not just ours.
             function RivalsRuntimeBridge.NativeRemovals.IsLocalAnimator(animator)
                 local viewModel = type(animator) == 'table' and rawget(animator, 'ClientViewModel') or nil
@@ -25071,9 +25071,9 @@ ErrorReporter.set_game(GameName)
                 return type(fighter) == 'table' and rawget(fighter, 'IsLocalPlayer') == true
             end
 
-            -- ZkxHub's AnimationDisabler. It does not stop a track after the fact: it swaps
+            -- Kicia's AnimationDisabler. It does not stop a track after the fact: it swaps
             -- the animator's own track for a no-op stub, runs the game's real PlayAnimation
-            -- so all of its bookkeeping still happens, then puts the real track back. ZkxHub
+            -- so all of its bookkeeping still happens, then puts the real track back. Kicia
             -- reaches PlayAnimation through a call redirect whose target list is erased in
             -- the decompile; replacing the class method directly is live-verified on this
             -- build to intercept every call (129 in 7s, including remote players'), which is
@@ -25176,14 +25176,14 @@ ErrorReporter.set_game(GameName)
                 native.Modules = {}
             end
 
-            -- ZkxHub's replication interception layer (their ReplicateHook, reference
+            -- Kicia's replication interception layer (their ReplicateHook, reference
             -- lines 71466-71615). It replaces ReplicatedController._ObjectChanged with a
             -- wrapper that normalizes every replicated call into one packet, offers that
             -- packet to handlers registered per outer enum token, and only lets the
             -- native path run when no handler set packet.block.
             --
             -- Blocking is the entire point. No Flashbang and No Burn Effect are the two
-            -- removals ZkxHub implements by refusing the packet outright, which is not
+            -- removals Kicia implements by refusing the packet outright, which is not
             -- reachable from an OnClientEvent listener: a RemoteEvent connection cannot
             -- stop the game's own handler from running.
             RivalsRuntimeBridge.ReplicateHook = {
@@ -25282,12 +25282,12 @@ ErrorReporter.set_game(GameName)
                 end
                 local bindingsByEnum = hook.BindingsByEnum
 
-                -- ZkxHub's wrapper is declared (self, objectId, enumToken, ...). Their own
+                -- Kicia's wrapper is declared (self, objectId, enumToken, ...). Their own
                 -- Crosshair._Update and Scope.SetActive hooks both call the native path
                 -- with the complete argument list, and _ObjectChanged is declared vararg
                 -- with no named parameters, so the full tuple is the only call-through
                 -- that stays correct whether the game invokes it with a colon or a dot.
-                -- The leading-table test picks the same objectId/enum ZkxHub reads.
+                -- The leading-table test picks the same objectId/enum Kicia reads.
                 local wrapped = function(...)
                     local packed = table.pack(...)
                     local offset = (type(packed[1]) == 'table') and 1 or 0
@@ -25323,7 +25323,7 @@ ErrorReporter.set_game(GameName)
                     end
                     for _, binding in ipairs(bindings) do
                         if binding.enabled and binding.handler then
-                            -- ZkxHub calls the handler raw. A throw here would surface
+                            -- Kicia calls the handler raw. A throw here would surface
                             -- inside the game's own replication dispatch, so the call is
                             -- guarded the same way the ported scope wrapper is.
                             pcall(binding.handler, packet)
@@ -25357,7 +25357,7 @@ ErrorReporter.set_game(GameName)
                 rawset(restore.controller, '_ObjectChanged', restore.original)
             end
 
-            -- ZkxHub leaves the wrapper installed until its trove is destroyed. Every
+            -- Kicia leaves the wrapper installed until its trove is destroyed. Every
             -- replicated packet pays for a coroutine while it is up, so reverting as soon
             -- as no binding is enabled keeps it off the replication path for the rest of
             -- the session once the toggle goes back off.
@@ -25382,7 +25382,7 @@ ErrorReporter.set_game(GameName)
                 hook.BindingsByEnum = {}
             end
 
-            -- ZkxHub's decode() on a packet argument. Handlers receive raw encoded enum
+            -- Kicia's decode() on a packet argument. Handlers receive raw encoded enum
             -- tokens and compare them by name.
             function RivalsRuntimeBridge.ReplicateHook.DecodeArg(value)
                 if type(value) ~= 'string' then
@@ -25399,7 +25399,7 @@ ErrorReporter.set_game(GameName)
                 return name
             end
 
-            -- No Flashbang / No Burn Effect are the two removals ZkxHub implements by
+            -- No Flashbang / No Burn Effect are the two removals Kicia implements by
             -- refusing the replicated packet instead of hiding what it drew. Flashbang is
             -- item-scoped, so its effect token sits at args[2] behind ItemChanged; burn is
             -- entity-scoped, so its token is args[1] behind EntityChanged and is gated on
@@ -25434,14 +25434,14 @@ ErrorReporter.set_game(GameName)
                             if not fighter then
                                 return
                             end
-                            -- ZkxHub gates on their fighter state's Entity.ObjectID. On this
+                            -- Kicia gates on their fighter state's Entity.ObjectID. On this
                             -- build the Entity object carries no ObjectID at all (verified
                             -- absent through both raw and ordinary reads), so that literal
                             -- read is nil and would never match - the same dead-branch as
                             -- the Bullet Tracers defect. Live EntityChanged packets address
                             -- the fighter's own Data.ObjectID instead: the EntityChanged-
                             -- nested FinisherEffect owner resolved through Data.ObjectID and
-                            -- never through Entity.ObjectID. Prefer ZkxHub's field if a build
+                            -- never through Entity.ObjectID. Prefer Kicia's field if a build
                             -- ever supplies it, then fall back to the one that exists.
                             local entity = rawget(fighter, 'Entity')
                             local objectId = type(entity) == 'table' and rawget(entity, 'ObjectID') or nil
@@ -25529,9 +25529,9 @@ ErrorReporter.set_game(GameName)
                 return true
             end
 
-            -- ZkxHub's JumpPower injection [91383]: replace the first constants-table upvalue of a
+            -- Kicia's JumpPower injection [91383]: replace the first constants-table upvalue of a
             -- target function with a proxy that multiplies BASE_JUMPPOWER reads. The 'meow\0d67'
-            -- marker key is ZkxHub's own-proxy detector: a stale proxy left by an earlier run
+            -- marker key is Kicia's own-proxy detector: a stale proxy left by an earlier run
             -- answers the marker with its wrapped original, so the scan unwraps instead of
             -- double-wrapping. A destroyed hook self-heals: the proxy restores the original
             -- upvalue on its next read instead of being torn down eagerly.
@@ -25575,9 +25575,9 @@ ErrorReporter.set_game(GameName)
                 end
             end
 
-            -- ZkxHub's JumpPower hook [91333]: proxy BASE_JUMPPOWER wherever the game reads it -
+            -- Kicia's JumpPower hook [91333]: proxy BASE_JUMPPOWER wherever the game reads it -
             -- MechanicsController._HookFighter plus the LocalFighter EntityAdded callback that
-            -- owns CustomGravity (and that callback's first activated proto). ZkxHub only builds
+            -- owns CustomGravity (and that callback's first activated proto). Kicia only builds
             -- this with a fighter present, so a nil LocalFighter defers instead of loading.
             function RivalsRuntimeBridge.Movement.AttemptLoadJumpPowerHook()
                 local movement = RivalsRuntimeBridge.Movement
@@ -25648,7 +25648,7 @@ ErrorReporter.set_game(GameName)
                 table.clear(movement.CollidableParts)
             end
 
-            -- ZkxHub's Noclip registry [139965]: record only parts that were CanCollide at bind or
+            -- Kicia's Noclip registry [139965]: record only parts that were CanCollide at bind or
             -- add time, keep it current through DescendantAdded/DescendantRemoving, and restore by
             -- setting exactly those parts back to true.
             function RivalsRuntimeBridge.Movement.BindNoclipCharacter(character)
@@ -25735,10 +25735,10 @@ ErrorReporter.set_game(GameName)
                 return Vector3.zero
             end
 
-            -- ZkxHub's Flight input [103480]: W/S ride the flattened look vector, A/D the raw
+            -- Kicia's Flight input [103480]: W/S ride the flattened look vector, A/D the raw
             -- camera RightVector, Space rises, LeftControl/LeftShift descend; without a keyboard
             -- the PlayerModule move vector rides the unflattened look/right vectors. The sum is
-            -- returned unnormalized - UpdateFlight normalizes, like ZkxHub's Update does.
+            -- returned unnormalized - UpdateFlight normalizes, like Kicia's Update does.
             function RivalsRuntimeBridge.Movement.FlightMoveDirection()
                 local movement = RivalsRuntimeBridge.Movement
                 if UserInputService:GetFocusedTextBox() then
@@ -25786,7 +25786,7 @@ ErrorReporter.set_game(GameName)
                 return flat.Magnitude > 0 and flat.Unit or Vector3.zero
             end
 
-            -- ZkxHub's Auto Strafe input [70819]: flattened look AND right vectors, W/S/D/A only,
+            -- Kicia's Auto Strafe input [70819]: flattened look AND right vectors, W/S/D/A only,
             -- PlayerModule move vector without a keyboard, normalized before returning.
             function RivalsRuntimeBridge.Movement.StrafeMoveDirection()
                 local movement = RivalsRuntimeBridge.Movement
@@ -25845,7 +25845,7 @@ ErrorReporter.set_game(GameName)
                     flight.Velocity.VectorVelocity = velocityVector
                     return
                 end
-                -- ZkxHub's _ApplyVelocity [103530]: unnamed Attachment + LinearVelocity, world
+                -- Kicia's _ApplyVelocity [103530]: unnamed Attachment + LinearVelocity, world
                 -- relative, infinite force, velocity assigned before Attachment0/Parent.
                 local attachment = Instance.new('Attachment')
                 attachment.Parent = rootPart
@@ -25870,7 +25870,7 @@ ErrorReporter.set_game(GameName)
                 local character = movement.Character
                 local alive = character ~= nil and movement.Humanoid ~= nil and movement.Humanoid.Health > 0
                 if not alive then
-                    -- ZkxHub's died path [139956] clears the registry without restoring: the
+                    -- Kicia's died path [139956] clears the registry without restoring: the
                     -- character is on its way out, so there is nothing to put back.
                     movement.ClearNoclipCharacter()
                 elseif movement.NoclipCharacter ~= character then
@@ -25947,10 +25947,10 @@ ErrorReporter.set_game(GameName)
                 movement.WalkSpeedHookGetter = getWalkSpeed
                 movement.WalkSpeedHookUpvalueIndex = upvalueIndex
                 movement.WalkSpeedHookOldUpvalue = oldUpvalue
-                -- ZkxHub's injection [111866]: swap _GetWalkSpeed's constants upvalue for a proxy.
+                -- Kicia's injection [111866]: swap _GetWalkSpeed's constants upvalue for a proxy.
                 -- One proxy serves both features: the Slide caller (debug.info level 3 names the
                 -- game's Slide routine) gets the sliding multiplier first, every other caller gets
-                -- the WalkSpeed multiplier, and any non-BASE_WALKSPEED read trips ZkxHub's kick.
+                -- the WalkSpeed multiplier, and any non-BASE_WALKSPEED read trips Kicia's kick.
                 debug.setupvalue(getWalkSpeed, upvalueIndex, setmetatable({}, {
                     __index = function(_, key)
                         if key ~= 'BASE_WALKSPEED' then
@@ -26041,9 +26041,9 @@ ErrorReporter.set_game(GameName)
                     movement.ReadToggle('P10S3T1') and movement.IsKeyActive('P10S3T1K'))
                 movement.UpdateSliding(
                     movement.ReadToggle('P10S3T2') and movement.IsKeyActive('P10S3T2K'))
-                -- ZkxHub's Jump Power has no keybind [53609]; the toggle alone drives it.
+                -- Kicia's Jump Power has no keybind [53609]; the toggle alone drives it.
                 movement.UpdateJumpPower(movement.ReadToggle('P10S3T3'))
-                -- ZkxHub's physics pump order [90368]: autoStrafe, flight, noclip.
+                -- Kicia's physics pump order [90368]: autoStrafe, flight, noclip.
                 movement.UpdateAutoStrafe(
                     deltaTime,
                     movement.ReadToggle('P10S3T6') and movement.IsKeyActive('P10S3T6K'))
@@ -26085,7 +26085,7 @@ ErrorReporter.set_game(GameName)
                 movement.WalkSpeedHookOldUpvalue = nil
                 movement.WalkMultiplierEnabled = false
                 movement.SlidingMultiplierEnabled = false
-                -- ZkxHub's JumpPower Destroy [91454] flags the hook destroyed; the proxies restore
+                -- Kicia's JumpPower Destroy [91454] flags the hook destroyed; the proxies restore
                 -- their original upvalues lazily on the next read instead of being torn down here.
                 movement.JumpPowerHookDestroyed = true
                 movement.JumpPowerHookLoaded = false
@@ -26098,15 +26098,15 @@ ErrorReporter.set_game(GameName)
                 movement.LongJumpPressed = false
             end
 
-            -- Device Spoof: direct 1:1 port of ZkxHub's DeviceSpoof [17425]. Replaces the
+            -- Device Spoof: direct 1:1 port of Kicia's DeviceSpoof [17425]. Replaces the
             -- ControlsController upvalue inside FighterController._ReplicateControls with a proxy
-            -- that only answers CurrentControls (kicking any other read, exactly like ZkxHub) and
+            -- that only answers CurrentControls (kicking any other read, exactly like Kicia) and
             -- returns the spoofed device string. The game's own replication then reports that
             -- device to the server.
             RivalsRuntimeBridge.DeviceSpoof = {
                 Hook = nil,
                 Controller = nil,
-                -- ZkxHub's frozen control map [104716]: dropdown key -> replicated Controls value.
+                -- Kicia's frozen control map [104716]: dropdown key -> replicated Controls value.
                 ControlsMap = {
                     Desktop = 'MouseKeyboard',
                     Mobile = 'Touch',
@@ -26164,7 +26164,7 @@ ErrorReporter.set_game(GameName)
                 return replicateControls, fighterController
             end
 
-            -- ZkxHub's f1277: re-run the game's own _ReplicateControls so the (now spoofed, or on
+            -- Kicia's f1277: re-run the game's own _ReplicateControls so the (now spoofed, or on
             -- unload restored) device is pushed to the server immediately instead of on the next
             -- organic replication.
             function RivalsRuntimeBridge.DeviceSpoof.ForceReplicate()
@@ -26202,8 +26202,8 @@ ErrorReporter.set_game(GameName)
                     return false
                 end
                 local originalValue = debug.getupvalue(replicateControls, upvalueIndex)
-                -- ZkxHub's injection [17552]: swap the ControlsController upvalue for a proxy that
-                -- only serves CurrentControls and keeps both of ZkxHub's kick guards verbatim.
+                -- Kicia's injection [17552]: swap the ControlsController upvalue for a proxy that
+                -- only serves CurrentControls and keeps both of Kicia's kick guards verbatim.
                 debug.setupvalue(replicateControls, upvalueIndex, setmetatable({}, {
                     __index = function(_, key)
                         if key ~= 'CurrentControls' then
@@ -26257,13 +26257,13 @@ ErrorReporter.set_game(GameName)
                 end
             end
 
-            -- Player Spoofer: 1:1 port of ZkxHub's player_spoofer. This slice is the AttributeSink
+            -- Player Spoofer: 1:1 port of Kicia's player_spoofer. This slice is the AttributeSink
             -- [31428] with its exact attribute binder [108644] and player registry [116985]. It
             -- writes spoofed nametag/stat attributes onto the Player instance, captures the
             -- original, re-asserts under an is-writing guard whenever the game overwrites the
             -- attribute, and restores the original on teardown. Scope (You vs Others) is chosen
             -- per player. Live-verified: these attributes exist on Player instances and are
-            -- client-writable. 'const' fields write ZkxHub's fixed value when enabled
+            -- client-writable. 'const' fields write Kicia's fixed value when enabled
             -- (Influencer/RobloxEmployee true, NosniyTeam GroupRank 255); 'value' fields write the
             -- configured value.
             RivalsRuntimeBridge.PlayerSpoofer = {
@@ -26286,7 +26286,7 @@ ErrorReporter.set_game(GameName)
                 },
             }
 
-            -- ZkxHub's attribute binder t78 [108648]: capture the original, re-assert the spoof
+            -- Kicia's attribute binder t78 [108648]: capture the original, re-assert the spoof
             -- whenever the game changes the attribute (guarded so our own write does not recurse),
             -- and restore on destroy.
             function RivalsRuntimeBridge.PlayerSpoofer.CreateBinder(instance, attribute)
@@ -26360,7 +26360,7 @@ ErrorReporter.set_game(GameName)
                 end
             end
 
-            -- ZkxHub _SetValue/_SetConst [31490]: bind + write when enabled, unbind (restore) when not.
+            -- Kicia _SetValue/_SetConst [31490]: bind + write when enabled, unbind (restore) when not.
             function RivalsRuntimeBridge.PlayerSpoofer.SetAttributeSpoof(player, attribute, enabled, value)
                 local spoofer = RivalsRuntimeBridge.PlayerSpoofer
                 if enabled then
@@ -26383,7 +26383,7 @@ ErrorReporter.set_game(GameName)
                 return option and option.Value
             end
 
-            -- ZkxHub AttributeSink _Apply [31479]: per player, for each field write the spoof (or
+            -- Kicia AttributeSink _Apply [31479]: per player, for each field write the spoof (or
             -- clear it) according to that scope's toggle and value.
             function RivalsRuntimeBridge.PlayerSpoofer.Apply(player)
                 local spoofer = RivalsRuntimeBridge.PlayerSpoofer
@@ -28566,7 +28566,7 @@ ErrorReporter.set_game(GameName)
                 })
             end
 
-            -- ZkxHub resolves the shooting item through its whole item registry rather than
+            -- Kicia resolves the shooting item through its whole item registry rather than
             -- the local fighter's list, so tracers also draw for other players' shots.
             -- Remote fighters only populate Items while they are rendered, so with nobody
             -- else on screen this naturally falls back to the local items.
@@ -28860,7 +28860,7 @@ ErrorReporter.set_game(GameName)
             --   nested  (ReplicationChanged, fighterId, ItemChanged, itemId, ShootEffect, payload...)
             -- Locate the effect token wherever it sits. The object it belongs to is the
             -- argument immediately before it, and the payload starts immediately after.
-            -- This matches how ZkxHub reads the stream and covers both layouts.
+            -- This matches how Kicia reads the stream and covers both layouts.
             -- Wire grammar is (kind, objectId, outerEnum, [innerId, innerEnum,] payload...),
             -- so argument 3 is ALWAYS the outer enum. The argument before the effect token
             -- is therefore only the owning object when that token is not sitting at index 4.
@@ -30415,7 +30415,7 @@ ErrorReporter.set_game(GameName)
                         local subject = entity and entity.Model
                         if not ShouldShow(player, false) then
                             RivalsRuntimeBridge.RecordTargetValidityRejection('team_or_self', subject, player, 'Players')
-                        -- ZkxHub parity (their "Vulnerable" target rule): spawn-
+                        -- Kicia parity (their "Vulnerable" target rule): spawn-
                         -- shielded players are skipped at SELECTION, not just at emission.
                         -- Shots into the shield do nothing, and a shielded best-target used
                         -- to stall the lock and eat silent shots while a vulnerable enemy
@@ -30915,7 +30915,7 @@ ErrorReporter.set_game(GameName)
                     return
                 end
 
-                -- ZkxHub parity: never write Camera.CFrame (the native CameraController
+                -- Kicia parity: never write Camera.CFrame (the native CameraController
                 -- re-renders from its Rotation state every frame and stomps the write).
                 -- Rotate the game's own state through CameraController:SetRotation so the
                 -- game renders the turn and shot direction follows.
@@ -30933,7 +30933,7 @@ ErrorReporter.set_game(GameName)
                 local blendAlpha = math.clamp(1 - math.exp(-frameDelta * (2 + (aimSpeed * 0.58))), 0, 1)
 
                 -- Rotation is Vector2(pitch, yaw) in radians; yaw accumulates past +/-pi,
-                -- so the yaw delta must wrap to the nearest turn (ZkxHub's rotate-towards).
+                -- so the yaw delta must wrap to the nearest turn (Kicia's rotate-towards).
                 local pitch, yaw = CFrame.lookAt(camera.CFrame.Position, worldPosition):ToOrientation()
                 cameraController:SetRotation(Vector2.new(
                     currentRotation.X + (pitch - currentRotation.X) * blendAlpha,
@@ -31660,7 +31660,7 @@ ErrorReporter.set_game(GameName)
             --
             -- InitialLifeAdoptionOpen covers executing the script MID-LIFE: the
             -- shield expired before we loaded, so the latch could never see it
-            -- and every aim feature stayed dark until the next respawn. ZkxHub
+            -- and every aim feature stayed dark until the next respawn. Kicia
             -- has no shield wait at all -- its gate is "player context built +
             -- equipped gun" (HasEquippedGun), both live game state. We adopt
             -- the current life once, at script start, on the same evidence
@@ -31757,9 +31757,9 @@ ErrorReporter.set_game(GameName)
                     return true
                 end
 
-                -- ZkxHub parity (mid-life execute): adopt the CURRENT life once at
+                -- Kicia parity (mid-life execute): adopt the CURRENT life once at
                 -- script start when the game itself says it is live -- entity in
-                -- world with an item equipped, the same evidence ZkxHub's
+                -- world with an item equipped, the same evidence Kicia's
                 -- HasEquippedGun gate runs on. Without this, executing after your
                 -- spawn shield expired held every aim feature dark until the next
                 -- respawn. One-shot: ResetLocalShieldLatch closes the window on
@@ -32675,7 +32675,7 @@ ErrorReporter.set_game(GameName)
                 end)
             end
 
-            -- ZkxHub parity: Auto Respawn triggers on the replicated respawn-animation event
+            -- Kicia parity: Auto Respawn triggers on the replicated respawn-animation event
             -- for the local player, not on the death prompt appearing. Their handler is
             -- exactly `enumName == "RespawnNowAnimation" and args[1] == LocalPlayer`, then
             -- the bounded five-request burst. The event is upstream of the button, so it
@@ -32772,10 +32772,10 @@ ErrorReporter.set_game(GameName)
                 if RivalsRagebot.IsBaitModeEnabled() then
                     RivalsRagebot.UpdateHostileTeleportTracker(now)
                     if RivalsRagebot.IsHostileCheating() then
-                        -- OOB Bait takes over the root this frame; release the ZkxHub ragebot's
+                        -- OOB Bait takes over the root this frame; release the Kicia ragebot's
                         -- part-glue/server-CFrame so the two mechanisms do not fight.
-                        if RivalsRuntimeBridge.ResetZkxHubRagebot then
-                            RivalsRuntimeBridge.ResetZkxHubRagebot()
+                        if RivalsRuntimeBridge.ResetKiciaRagebot then
+                            RivalsRuntimeBridge.ResetKiciaRagebot()
                         end
                         local item = AimbotBridge.ResolveAimbotEquippedItem()
                         local shotReady = AimbotBridge.IsShotImmediatelyReady(item)
@@ -32823,9 +32823,9 @@ ErrorReporter.set_game(GameName)
                     RivalsRagebotState.LastHoldUpdateAt = 0
                     RivalsRagebotState.PhaseClockSec = 0
                     RivalsRuntimeBridge.RecordCharacterLoadingCheckpoint('Ragebot', false, false)
-                    -- Let the ZkxHub ragebot settle to its disabled state (release glue, restore FFlags).
-                    if RivalsRuntimeBridge.UpdateZkxHubRagebot then
-                        RivalsRuntimeBridge.UpdateZkxHubRagebot(deltaTime)
+                    -- Let the Kicia ragebot settle to its disabled state (release glue, restore FFlags).
+                    if RivalsRuntimeBridge.UpdateKiciaRagebot then
+                        RivalsRuntimeBridge.UpdateKiciaRagebot(deltaTime)
                     end
                     return
                 end
@@ -32833,11 +32833,11 @@ ErrorReporter.set_game(GameName)
                 local readyToFight = RivalsRuntimeBridge.IsReadyToFight()
                 RivalsRuntimeBridge.RecordCharacterLoadingCheckpoint('Ragebot', readyToFight, true)
 
-                -- ZkxHub ragebot owns the main firing path: a self-contained teleport-to-void
+                -- Kicia ragebot owns the main firing path: a self-contained teleport-to-void
                 -- ragebot (root virtualization + hitbox part-glue + direct fighter-remote fire). It
-                -- self-gates on readiness/enable and reads all ZkxHub settings live.
-                if RivalsRuntimeBridge.UpdateZkxHubRagebot then
-                    RivalsRuntimeBridge.UpdateZkxHubRagebot(deltaTime)
+                -- self-gates on readiness/enable and reads all Kicia settings live.
+                if RivalsRuntimeBridge.UpdateKiciaRagebot then
+                    RivalsRuntimeBridge.UpdateKiciaRagebot(deltaTime)
                 end
             end
 
@@ -32845,9 +32845,9 @@ ErrorReporter.set_game(GameName)
             RivalsRuntimeBridge.RegisterAutoRespawnSignals = RivalsRagebot.RegisterRespawnSignals
             end
             -- ============================================================================
-            -- ZkxHub Ragebot (1:1 port).
+            -- Kicia Ragebot (1:1 port).
             --
-            -- Self-contained "teleport-to-void" ragebot copied from the ZkxHub RIVALS script.
+            -- Self-contained "teleport-to-void" ragebot copied from the Kicia RIVALS script.
             -- Each Heartbeat, while enabled and a valid target exists:
             --   * root virtualization  - HumanoidRootPart server CFrame is decoupled from the
             --     visible CFrame (RenderStep(First) restores the real CFrame; Heartbeat jumps
@@ -32872,7 +32872,7 @@ ErrorReporter.set_game(GameName)
             -- and the global environment as Genv, so the kernel stays independent of where it is
             -- emitted.
             --
-            -- This port reproduces ZkxHub's ragebot faithfully, including the parts that are loud:
+            -- This port reproduces Kicia's ragebot faithfully, including the parts that are loud:
             -- it resolves and directly fires the fighter combat remote and uses metatable / getgc /
             -- debug surfaces.
             -- ============================================================================
@@ -33806,7 +33806,7 @@ ErrorReporter.set_game(GameName)
                 State = {
                     Controller = nil,
                     BoundDuel = nil,
-                    -- ZkxHub-style window memory: what we submitted this vote
+                    -- Kicia-style window memory: what we submitted this vote
                     -- window, reset whenever VoteOptionsType changes. Never
                     -- read server-side LastVote for dedup - it persists across
                     -- windows and permanently blocked repeat picks.
@@ -33951,7 +33951,7 @@ ErrorReporter.set_game(GameName)
                     return false, 'no_duel'
                 end
 
-                -- ZkxHub's window handler: reset the submission memory when the
+                -- Kicia's window handler: reset the submission memory when the
                 -- vote type changes, then only re-handle the window if nothing
                 -- was submitted yet or our submission got banned out from
                 -- under us (which is also how ban round 2 gets triggered).
@@ -33992,9 +33992,9 @@ ErrorReporter.set_game(GameName)
                         return false, 'not_dueler'
                     end
                     -- Ranked map-BAN windows replicate MaxMapBansPerTeam and
-                    -- get ZkxHub's bans-remaining gate 1:1. Casual pick windows
+                    -- get Kicia's bans-remaining gate 1:1. Casual pick windows
                     -- carry no MaxMapBansPerTeam (live-verified), so
-                    -- ZkxHub's gate would block them; the game's own UI has no
+                    -- Kicia's gate would block them; the game's own UI has no
                     -- such gate there.
                     if RivalsAutoBan.Read(duel, 'MaxMapBansPerTeam') ~= nil
                         and RivalsAutoBan.BansRemaining(duel, 'Maps') <= 0 then
@@ -34025,7 +34025,7 @@ ErrorReporter.set_game(GameName)
                 if bansRemaining <= 0 then
                     return false, 'bans_complete'
                 end
-                -- ZkxHub keys the ban list off bans remaining: 2 left -> first
+                -- Kicia keys the ban list off bans remaining: 2 left -> first
                 -- ban list, 1 left -> second.
                 local selectionIds = { 'P8S5D5', 'P8S5D6' }
                 local selectionId = selectionIds[#selectionIds - bansRemaining + 1]
@@ -36909,7 +36909,7 @@ ErrorReporter.set_game(GameName)
                 return true
             end
 
-            function RivalsCosmetics.BuildZkxHubItemSelection(weaponName)
+            function RivalsCosmetics.BuildKiciaItemSelection(weaponName)
                 local selection = {}
                 local hasSelection = false
                 local skin = RivalsCosmetics.ResolveSkinSelectionValue(weaponName)
@@ -36940,7 +36940,7 @@ ErrorReporter.set_game(GameName)
                 return hasSelection and selection or nil
             end
 
-            function RivalsCosmetics.BuildZkxHubCosmeticPayload(cosmeticName, inverted)
+            function RivalsCosmetics.BuildKiciaCosmeticPayload(cosmeticName, inverted)
                 if cosmeticName == nil or cosmeticName == RIVALS_COSMETIC_NONE then
                     return nil
                 end
@@ -36957,7 +36957,7 @@ ErrorReporter.set_game(GameName)
                     return weaponData
                 end
 
-                local selection = RivalsCosmetics.BuildZkxHubItemSelection(weaponName)
+                local selection = RivalsCosmetics.BuildKiciaItemSelection(weaponName)
                 local patchedNaturalCharm = RivalsCosmetics.PatchRankCharmPayload(weaponData.Charm)
                 local hasOnlyUseFavoritesOverride = false
                 for _, cosmeticType in ipairs(RivalsCosmetics.FavoriteKinds) do
@@ -36973,19 +36973,19 @@ ErrorReporter.set_game(GameName)
                 local overriddenWeaponData = table.clone(weaponData)
                 if selection ~= nil then
                     if selection.skin ~= nil then
-                        overriddenWeaponData.Skin = RivalsCosmetics.BuildZkxHubCosmeticPayload(selection.skin)
+                        overriddenWeaponData.Skin = RivalsCosmetics.BuildKiciaCosmeticPayload(selection.skin)
                     end
                     if selection.wrap ~= nil then
-                        overriddenWeaponData.Wrap = RivalsCosmetics.BuildZkxHubCosmeticPayload(
+                        overriddenWeaponData.Wrap = RivalsCosmetics.BuildKiciaCosmeticPayload(
                             selection.wrap.name,
                             selection.wrap.inverted
                         )
                     end
                     if selection.charm ~= nil then
-                        overriddenWeaponData.Charm = RivalsCosmetics.BuildZkxHubCosmeticPayload(selection.charm)
+                        overriddenWeaponData.Charm = RivalsCosmetics.BuildKiciaCosmeticPayload(selection.charm)
                     end
                     if selection.finisher ~= nil then
-                        overriddenWeaponData.Finisher = RivalsCosmetics.BuildZkxHubCosmeticPayload(selection.finisher)
+                        overriddenWeaponData.Finisher = RivalsCosmetics.BuildKiciaCosmeticPayload(selection.finisher)
                     end
                 end
                 overriddenWeaponData.Charm = RivalsCosmetics.PatchRankCharmPayload(overriddenWeaponData.Charm)
@@ -37066,7 +37066,7 @@ ErrorReporter.set_game(GameName)
                     return nil
                 end
 
-                -- ZkxHub's inventory contract is intentionally asymmetric: weapon-specific
+                -- Kicia's inventory contract is intentionally asymmetric: weapon-specific
                 -- skins and emotes are booleans, while universal cosmetics map every item.
                 local allItemNames = {}
                 for itemName in pairs(items) do
@@ -37686,7 +37686,7 @@ ErrorReporter.set_game(GameName)
                 return encoded ~= nil and encoded or key
             end
 
-            function RivalsCosmetics.ApplyZkxHubViewModelSelection(weaponName, viewModelData, selection)
+            function RivalsCosmetics.ApplyKiciaViewModelSelection(weaponName, viewModelData, selection)
                 if type(viewModelData) ~= 'table' or type(selection) ~= 'table' then
                     return viewModelData
                 end
@@ -37789,7 +37789,7 @@ ErrorReporter.set_game(GameName)
                     local clientFighter = rawget(instance, 'ClientFighter')
                     local player = type(clientFighter) == 'table' and rawget(clientFighter, 'Player') or nil
                     local weaponName = rawget(instance, 'Name')
-                    local selection = player == LP and RivalsCosmetics.BuildZkxHubItemSelection(weaponName) or nil
+                    local selection = player == LP and RivalsCosmetics.BuildKiciaItemSelection(weaponName) or nil
                     local dataKey = RivalsCosmetics.EncodeGameKey('Data')
                     local viewModelData = type(viewModel) == 'table' and viewModel[dataKey] or nil
                     if type(selection) ~= 'table' or type(viewModelData) ~= 'table' then
@@ -37797,7 +37797,7 @@ ErrorReporter.set_game(GameName)
                     end
 
                     RivalsCosmetics.EnsureClientItemRestoreData(player, weaponName, viewModelData)
-                    RivalsCosmetics.ApplyZkxHubViewModelSelection(weaponName, viewModelData, selection)
+                    RivalsCosmetics.ApplyKiciaViewModelSelection(weaponName, viewModelData, selection)
                 end
 
                 debug.setupvalue(constructor, prototypeIndex, proxy)
@@ -39994,7 +39994,7 @@ ErrorReporter.set_game(GameName)
                     return false
                 end
 
-                local selection = restoreOnly == true and nil or RivalsCosmetics.BuildZkxHubItemSelection(weaponName)
+                local selection = restoreOnly == true and nil or RivalsCosmetics.BuildKiciaItemSelection(weaponName)
                 local signature = RivalsCosmetics.BuildViewModelSelectionSignature(weaponName, selection)
                 local appliedSelection = RivalsCosmeticsState.ViewModelSelectionSignatureByItem[item]
                 if force ~= true and type(appliedSelection) == 'table'
@@ -40009,7 +40009,7 @@ ErrorReporter.set_game(GameName)
                 local restoreData = RivalsCosmetics.GetClientItemRestoreData(LP, weaponName)
                 local nextData
                 if type(selection) == 'table' then
-                    nextData = RivalsCosmetics.ApplyZkxHubViewModelSelection(
+                    nextData = RivalsCosmetics.ApplyKiciaViewModelSelection(
                         weaponName,
                         { Name = weaponName },
                         selection
@@ -40095,7 +40095,7 @@ ErrorReporter.set_game(GameName)
             function RivalsCosmetics.ApplySelectedWeaponCosmetics()
                 local applied = false
                 for _, weaponName in ipairs(RivalsCosmetics.ResolveWeaponNames()) do
-                    if RivalsCosmetics.BuildZkxHubItemSelection(weaponName) ~= nil then
+                    if RivalsCosmetics.BuildKiciaItemSelection(weaponName) ~= nil then
                         applied = RivalsCosmetics.ReloadWeaponViewModel(weaponName) or applied
                     end
                 end
@@ -41310,14 +41310,14 @@ ErrorReporter.set_game(GameName)
 
             RivalsRuntimeBridge.BuildEspPreview = function(groupbox)
                 -- ========================================================================
-                -- Bounded ZkxHub exception (third, alongside the No Spread
-                -- InputHook and the Ragebot): ZkxHub's exact ESP-preview avatar builder. The
+                -- Bounded Kicia exception (third, alongside the No Spread
+                -- InputHook and the Ragebot): Kicia's exact ESP-preview avatar builder. The
                 -- model is built from the local player's own avatar and lives only inside
                 -- the preview ViewportFrame; it is never applied to any live character. See
                 -- anticheat-findings.md. Declared inside BuildEspPreview because the module
                 -- top scope sits at Luau's 200-register -O0 ceiling.
                 -- ========================================================================
-                -- __ZkxHub_AVATAR_PREVIEW_BEGIN__
+                -- __KICIA_AVATAR_PREVIEW_BEGIN__
                 local function BuildEspPreviewAvatarModel()
                     local descriptionOk, description = pcall(function()
                         return Players:GetHumanoidDescriptionFromUserIdAsync(LP.UserId)
@@ -41338,7 +41338,7 @@ ErrorReporter.set_game(GameName)
                     end
                     return avatarModel
                 end
-                -- __ZkxHub_AVATAR_PREVIEW_END__
+                -- __KICIA_AVATAR_PREVIEW_END__
 
                 -- Static scene: no auto-rotate, drag/zoom only.
                 local EspPreviewOrbit = {
@@ -41422,7 +41422,7 @@ ErrorReporter.set_game(GameName)
                 previewWorldModel.Parent = viewportFrame
                 model.Parent = previewWorldModel
 
-                -- ZkxHub structure: the gradient lives on a frame BEHIND the transparent
+                -- Kicia structure: the gradient lives on a frame BEHIND the transparent
                 -- viewport. A UIGradient directly on the ViewportFrame tints the rendered 3D
                 -- image toward black (live-verified).
                 local backgroundFrame = Instance.new('Frame')
@@ -41524,7 +41524,7 @@ ErrorReporter.set_game(GameName)
 
                 -- The sample ESP tracks the preview humanoid like the live renderer: project
                 -- the measured body bounds through the viewport camera and fit the target
-                -- rect to them, instead of ZkxHub's fixed centered 0.3 x 0.6 rectangle.
+                -- rect to them, instead of Kicia's fixed centered 0.3 x 0.6 rectangle.
                 UpdateEspPreviewOverlayRect = function()
                     local viewportSize = viewportFrame.AbsoluteSize
                     if viewportSize.X < 1 or viewportSize.Y < 1 then
@@ -43243,9 +43243,9 @@ ErrorReporter.set_game(GameName)
                     Text = 'Ragebot',
                     NoUI = false,
                 })
-                -- Ragebot settings match ZkxHub's recovered page ("gV" builder, source ~258008):
+                -- Ragebot settings match Kicia's recovered page ("gV" builder, source ~258008):
                 -- Stability 0..1.5 step .001, Shoot Frames 1..5, Prioritize Hackers, per-weapon
-                -- toggles, On Empty, and the Random/Translocate evasion groups. ZkxHub exposes NO
+                -- toggles, On Empty, and the Random/Translocate evasion groups. Kicia exposes NO
                 -- ProjectileBreaker sliders (hardcoded defaults) and its Weapon Priority reorder
                 -- (OrderedList) has no Obsidian equivalent, so priority stays config order.
                 RagebotGroup:AddToggle('P8S4T4', {
@@ -44532,8 +44532,8 @@ ErrorReporter.set_game(GameName)
                 RivalsRuntimeBridge.PlayerSpoofer.Destroy()
                 RivalsRuntimeBridge.AnimationPlayer.Destroy()
                 RivalsRuntimeBridge.MovementRecorder.Destroy()
-                if RivalsRuntimeBridge.DestroyZkxHubRagebot then
-                    RivalsRuntimeBridge.DestroyZkxHubRagebot()
+                if RivalsRuntimeBridge.DestroyKiciaRagebot then
+                    RivalsRuntimeBridge.DestroyKiciaRagebot()
                 end
                 RivalsRuntimeBridge.CombatFeedback.Destroy()
                 RivalsRuntimeBridge.ResetRivalsCosmetics()
