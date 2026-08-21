@@ -1,6 +1,5 @@
 --  ZkxHub - RIVALS script
 
-
 local _analyticsRemote = nil
 
 task.spawn(function()
@@ -34,25 +33,31 @@ task.spawn(function()
 
     -- Phase 2: block the analytics remote so nothing reaches the server
     pcall(function()
-        local remote = game:GetService("ReplicatedStorage")
-            .Remotes.AnalyticsPipeline.RemoteEvent
+        -- FIX: Put the path on a single line to prevent syntax errors
+        local remote = game:GetService("ReplicatedStorage").Remotes.AnalyticsPipeline.RemoteEvent
         _analyticsRemote = remote
         
-        -- Kill OnClientEvent connections
-        local ok, conns = pcall(getconnections, remote.OnClientEvent)
-        if ok then
-            for _, c in ipairs(conns) do
-                if c.Function then
-                    pcall(hookfunction, c.Function, newcclosure(function() end))
+        if remote then
+            -- Kill OnClientEvent connections
+            if type(getconnections) == "function" then
+                local ok, conns = pcall(getconnections, remote.OnClientEvent)
+                if ok and type(conns) == "table" then
+                    for _, c in ipairs(conns) do
+                        if c.Function and type(hookfunction) == "function" and type(newcclosure) == "function" then
+                            pcall(hookfunction, c.Function, newcclosure(function() end))
+                        end
+                    end
+                end
+            end
+            
+            -- Disable the remote entirely so it can't FireServer
+            if type(hookfunction) == "function" and type(newcclosure) == "function" then
+                local fireServer = remote.FireServer
+                if fireServer then
+                    pcall(hookfunction, fireServer, newcclosure(function() end))
                 end
             end
         end
-        
-        -- Disable the remote entirely so it can't FireServer
-        pcall(function()
-            local fireServer = remote.FireServer
-            hookfunction(fireServer, newcclosure(function() end))
-        end)
     end)
 
     print("[ACB] Done")
