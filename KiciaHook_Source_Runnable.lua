@@ -1,20 +1,9 @@
--- =============================================================================
---  ZkxHub - open-source RIVALS script
--- =============================================================================
---  This is a readable, runnable reconstruction of the ZkxHub feature set for
---  RIVALS, rebuilt by pattern-matching a public deobfuscation against the live
---  game, with additional features and a different UI on top.
--- =============================================================================
+--  ZkxHub - RIVALS script
+
 (function()
 
--- -----------------------------------------------------------------------------
 -- Global environment resolution
--- -----------------------------------------------------------------------------
--- A candidate env only wins if a key written to it is visible as a bare global
--- read from this script. Solara-tier executors ship a getgenv whose table is
--- disconnected from the real environment (sUNC: "the function environment of
--- getgenv should not be the result of it"), which would otherwise strand the
--- executor stubs below in a dead table nothing can see.
+
 local function ResolveGlobalEnv()
     local candidates = {}
     if type(getgenv) == 'function' then
@@ -51,13 +40,8 @@ end
 __ZkhHub_genv.Executed = true
 pcall(function() _G.__ZkxHubExecuted = true end)
 
--- -----------------------------------------------------------------------------
 -- Executor capability stubs
--- -----------------------------------------------------------------------------
--- Executors vary wildly in which functions they implement. Rather than sprinkle
--- `if type(x) == 'function'` everywhere, install harmless no-op stubs for the
--- missing ones and remember which names were stubbed. Features then ask
--- ZkxHubCaps whether support is real before enabling themselves.
+
 do
     local _noop = function() end
     local _genv = __ZkhHub_genv
@@ -14299,7 +14283,7 @@ local DefaultUiSettings = {
     auto_load_config = true,
     auto_save_config = true,
     load_config_name = 'Legit',
-    menu_keybind = 'LeftControl',
+    menu_keybind = 'RightControl',
 }
 
 local module = {}
@@ -14786,7 +14770,7 @@ function module.new(args)
     })
 
     group:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', {
-        Default = persist_menu_keybind and persisted_defaults.menu_keybind or defaults.menu_keybind or 'LeftControl',
+        Default = persist_menu_keybind and persisted_defaults.menu_keybind or defaults.menu_keybind or 'RightControl',
         NoUI = true,
         Text = 'Menu keybind'
     })
@@ -14843,7 +14827,7 @@ function module.new(args)
             end
         end
 
-        return persisted_defaults.menu_keybind or defaults.menu_keybind or 'LeftControl'
+        return persisted_defaults.menu_keybind or defaults.menu_keybind or 'RightControl'
     end
 
     local function persist_ui_settings()
@@ -14855,7 +14839,7 @@ function module.new(args)
             auto_load_config = toggles[ids.auto_load_config].Value,
             auto_save_config = toggles[ids.auto_save_config].Value,
             load_config_name = ResolveConfigSelectionValue(ids.load_config_name, persisted_defaults.load_config_name),
-            menu_keybind = persist_menu_keybind and ResolveMenuKeybindValue() or defaults.menu_keybind or 'LeftControl',
+            menu_keybind = persist_menu_keybind and ResolveMenuKeybindValue() or defaults.menu_keybind or 'RightControl',
         }, defaults)
     end
 
@@ -45429,7 +45413,7 @@ ErrorReporter.set_game(GameName)
                         auto_load_config = true,
                         auto_save_config = true,
                         load_config_name = 'Legit',
-                        menu_keybind = 'LeftControl',
+                        menu_keybind = 'RightControl',
                     },
                     persist_menu_keybind = false,
                     queue_on_teleport = queue_on_teleport,
