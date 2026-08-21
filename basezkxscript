@@ -1,0 +1,1130 @@
+local _analyticsRemote = nil
+
+task.spawn(function()
+    -- Phase 1: catch LocalScript3's thread early via getthreads
+    if type(getthreads) == "function" then
+        local killed = false
+        for _ = 1, 50 do
+            task.wait(0.1)
+            local ok, list = pcall(getthreads)
+            if not ok then break end
+            local cur = coroutine.running()
+            for _, t in ipairs(list) do
+                if type(t) == "thread" and t ~= cur
+                   and coroutine.status(t) ~= "dead" then
+                    for lvl = 1, 4 do
+                        local ok2, src = pcall(debug.info, t, lvl, "s")
+                        if not ok2 or src == nil then break end
+                        if type(src) == "string"
+                           and src:find("LocalScript3", 1, true) then
+                            pcall(task.cancel, t)
+                            pcall(coroutine.close, t)
+                            killed = true
+                            break
+                        end
+                    end
+                end
+            end
+            if killed then break end
+        end
+    end
+
+    -- Phase 2: block the analytics remote so nothing reaches the server
+    pcall(function()
+        local remote = game:GetService("ReplicatedStorage")
+            .Remotes.AnalyticsPipeline.RemoteEvent
+        _analyticsRemote = remote
+        
+        -- Kill OnClientEvent connections
+        local ok, conns = pcall(getconnections, remote.OnClientEvent)
+        if ok then
+            for _, c in ipairs(conns) do
+                if c.Function then
+                    pcall(hookfunction, c.Function, newcclosure(function() end))
+                end
+            end
+        end
+        
+        -- Disable the remote entirely so it can't FireServer
+        pcall(function()
+            local fireServer = remote.FireServer
+            hookfunction(fireServer, newcclosure(function() end))
+        end)
+    end)
+
+    print("[ACB] Done")
+end)
+
+local Players           = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HttpService       = game:GetService("HttpService")
+local RunService        = game:GetService("RunService")
+local UserInputService  = game:GetService("UserInputService")
+local LocalPlayer       = Players.LocalPlayer
+local PlayerScripts     = LocalPlayer:WaitForChild("PlayerScripts", 15)
+
+local SAVE_FILE = "ZkxHub.json"
+local MasterData = {
+    Settings = { ToggleKey = "RightControl" },
+    Profiles = { Default = {} },
+    CurrentProfile = "Default"
+}
+local function saveMasterData() pcall(function() writefile(SAVE_FILE, HttpService:JSONEncode(MasterData)) end) end
+local function loadMasterData()
+    local ok, raw = pcall(readfile, SAVE_FILE)
+    if ok and raw and raw ~= "" then
+        local ok2, decoded = pcall(function() return HttpService:JSONDecode(raw) end)
+        if ok2 and type(decoded) == "table" then
+            if decoded.Settings       then MasterData.Settings        = decoded.Settings       end
+            if decoded.Profiles       then MasterData.Profiles        = decoded.Profiles       end
+            if decoded.CurrentProfile then MasterData.CurrentProfile  = decoded.CurrentProfile end
+        end
+    end
+end
+loadMasterData()
+
+local EquippedSkins = {}
+if MasterData.Profiles[MasterData.CurrentProfile] then
+    for w, s in pairs(MasterData.Profiles[MasterData.CurrentProfile]) do EquippedSkins[w] = s end
+end
+local lobbyCosmetics = {}
+
+local SkinLists = {
+    ["Assault Rifle"]     = {"Default","AK-47","AUG","Tommy Gun","Boneclaw Rifle","Gingerbread AUG","AKEY-47","10B Visits","Phoenix Rifle","Pearl Rifle","Glorious Assault Rifle"},
+    ["Battle Axe"]        = {"Default","The Shred","Ban Axe","Cerulean Axe","Balloon Axe","Nordic Axe","Keyttle Axe","Caladbolg","Street Sign","Tiki Axe","Glorious Battle Axe"},
+    ["Bow"]               = {"Default","Compound Bow","Raven Bow","Dream Bow","Bat Bow","Frostbite Bow","Beloved Bow","Balloon Bow","Key Bow","Palm Bow","Glorious Bow"},
+    ["Burst Rifle"]       = {"Default","Electro Rifle","Aqua Burst","FAMAS","Spectral Burst","Pine Burst","Keyst Rifle","Sand FAMAS","Glorious Burst Rifle"},
+    ["Chainsaw"]          = {"Default","Blobsaw","Handsaws","Mega Drill","Buzzsaw","Festive Buzzsaw","Sharksaw","Glorious Chainsaw"},
+    ["Crossbow"]          = {"Default","Pixel Crossbow","Harpoon Crossbow","Violin Crossbow","Crossbone","Frostbite Crossbow","Arch Crossbow","Campfire Crossbow","Glorious Crossbow"},
+    ["Daggers"]           = {"Default","Aces","Paper Planes","Shurikens","Bat Daggers","Cookies","Crystal Daggers","Broken Hearts","Keynais","Toaster","Starfish","Glorious Daggers"},
+    ["Distortion"]        = {"Default","Plasma Distortion","Magma Distortion","Cyber Distortion","Experiment D15","Sleighstortion","Electropunk Distortion","Bubble Distortion","Glorious Distortion"},
+    ["Energy Pistols"]    = {"Default","Hacker Pistols","Void Pistols","Hydro Pistols","Soul Pistols","New Year Energy Pistols","Apex Pistols","Hyperlaser Guns","Sol Pistols","Glorious Energy Pistols"},
+    ["Energy Rifle"]      = {"Default","Hacker Rifle","Hydro Rifle","Void Rifle","Soul Rifle","New Year Energy Rifle","Apex Rifle","Sol Rifle","Glorious Energy Rifle"},
+    ["Exogun"]            = {"Default","Singularity","Ray Gun","Repulsor","Exogourd","Midnight Festive Exogun","Wondergun","Pearl Exogun","Glorious Exogun"},
+    ["Fists"]             = {"Default","Boxing Gloves","Brass Knuckles","Fists of Hurt","Pumpkin Claws","Festive Fists","Fist","Spy Gloves","Pirate Hook","Crab Claws","Glorious Fists"},
+    ["Flamethrower"]      = {"Default","Pixel Flamethrower","Lamethrower","Glitterthrower","Jack O'Thrower","Snowblower","Keythrower","Rainbowthrower","Spray Bottle","Extinguisher","Bubblethrower","Glorious Flamethrower"},
+    ["Flare Gun"]         = {"Default","Firework Gun","Dynamite Gun","Banana Flare","Vexed Flare Gun","Wrapped Flare Gun","Pocket Volcano","Glorious Flare Gun"},
+    ["Flashbang"]         = {"Default","Disco Ball","Camera","Lightbulb","Skullbang","Shining Star","Pixel Flashbang","Sol","Glorious Flashbang"},
+    ["Freeze Ray"]        = {"Default","Temporal Ray","Bubble Ray","Gum Ray","Spider Ray","Wrapped Freeze Ray","Cooler","Glorious Freeze Ray"},
+    ["Grappler"]          = {"Default","Lasso","Lifeguard Grappler","Glorious Grappler"},
+    ["Grenade"]           = {"Default","Whoopee Cushion","Water Balloon","Dynamite","Soul Grenade","Jingle Grenade","Keynade","Cuddle Bomb","Frozen Grenade","Fizz Bomb","Glorious Grenade"},
+    ["Grenade Launcher"]  = {"Default","Swashbuckler","Uranium Launcher","Gearnade Launcher","Skull Launcher","Snowball Launcher","Balloon Launcher","Coconut Launcher","Glorious Grenade Launcher"},
+    ["Gunblade"]          = {"Default","Hyper Gunblade","Crude Gunblade","Gunsaw","Boneblade","Elf's Gunblade","Keyblade","SharkBite","Glorious Gunblade"},
+    ["Handgun"]           = {"Default","Blaster","Hand Gun","Gumball Handgun","Pumpkin Handgun","Gingerbread Handgun","Pixel Handgun","Towerstone Handgun","Warp Handgun","Stealth Handgun","Sandgun","Glorious Handgun"},
+    ["Jump Pad"]          = {"Default","Trampoline","Bounce House","Shady Chicken Sandwich","Flamingo Floatie","Glorious Jump Pad"},
+    ["Katana"]            = {"Default","Saber","Lightning Bolt","Stellar Katana","Evil Trident","New Year Katana","Keytana","Arch Katana","Crystal Katana","Pixel Katana","Linked Sword","Riptide Katana","Cutlass","Swordfish","Glorious Katana"},
+    ["Knife"]             = {"Default","Chancla","Karambit","Balisong","Machete","Candy Cane","Keyrambit","Keylisong","Pencil","Birthday Candle","Shark Tooth","Glorious Knife"},
+    ["Maul"]              = {"Default","Ban Hammer","Sleigh Maul","Ice Maul","Giant Popsicle","Glorious Maul"},
+    ["Medkit"]            = {"Default","Sandwich","Laptop","Medkitty","Bucket of Candy","Milk & Cookies","Box of Chocolates","Briefcase","Ice Cream","Glorious Medkit"},
+    ["Minigun"]           = {"Default","Lasergun 3000","Pixel Minigun","Fighter Jet","Pumpkin Minigun","Wrapped Minigun","Shark Minigun","Glorious Minigun"},
+    ["Molotov"]           = {"Default","Coffee","Torch","Lava Lamp","Vexed Candle","Hot Coals","Arch Molotov","Ship In A Bottle","Campfire Stick","Glorious Molotov"},
+    ["Paintball Gun"]     = {"Default","Slime Gun","Boba Gun","Ketchup Gun","Brain Gun","Snowball Gun","Money Gun","Paintballoon Gun","Lemonade Gun","Glorious Paintball Gun"},
+    ["Permafrost"]        = {"Default","Snowman Permafrost","Ice Permafrost","Permasand","Glorious Permafrost"},
+    ["Revolver"]          = {"Default","Desert Eagle","Sheriff","Peppergun","Boneclaw Revolver","Peppermint Sheriff","Keyvolver","Cruise Revolver","Glorious Revolver"},
+    ["Riot Shield"]       = {"Default","Door","Energy Shield","Masterpiece","Sled","Broken Surfboard","Glorious Riot Shield"},
+    ["RPG"]               = {"Default","Nuke Launcher","Spaceship Launcher","Squid Launcher","Pumpkin Launcher","Firework Launcher","Pencil Launcher","RPKEY","Rocket Launcher","Sundae Launcher","Glorious RPG"},
+    ["Satchel"]           = {"Default","Advanced Satchel","Notebook Satchel","Bag o' Money","Potion Satchel","Suspicious Gift","Pizza Box","Lifeguard Satchel","Glorious Satchel"},
+    ["Scythe"]            = {"Default","Scythe of Death","Anchor","Sakura Scythe","Bat Scythe","Cryo Scythe","Crystal Scythe","Keythe","Bug Net","Palm Scythe","Plastic Flamingo","Glorious Scythe"},
+    ["Shotgun"]           = {"Default","Balloon Shotgun","Hyper Shotgun","Cactus Shotgun","Broomstick","Wrapped Shotgun","Shotkey","Shark Shotgun","Glorious Shotgun"},
+    ["Shorty"]            = {"Default","Not So Shorty","Lovely Shorty","Balloon Shorty","Demon Shorty","Wrapped Shorty","Too Shorty","Cannon Shorty","Bubble Shorty","Glorious Shorty"},
+    ["Slingshot"]         = {"Default","Stick","Goalpost","Harp","Boneshot","Reindeer Slingshot","Lucky Horseshoe","Keyshot","Palmshot","Glorious Slingshot"},
+    ["Smoke Grenade"]     = {"Default","Emoji Cloud","Balance","Hourglass","Eyeball","Snowglobe","Beach Ball","Glorious Smoke Grenade"},
+    ["Sniper"]            = {"Default","Pixel Sniper","Hyper Sniper","Event Horizon","Eyething Sniper","Gingerbread Sniper","Keyper","Kraken Sniper","Campfire Sniper","Glorious Sniper"},
+    ["Spear"]             = {"Default","Studio Light","Giant Pencil","Chark Kebab","Glorious Spear"},
+    ["Spray"]             = {"Default","Lovely Spray","Nail Gun","Pine Spray","Key Spray","Boneclaw Spray","Campfire Spray","Glorious Spray"},
+    ["Subspace Tripmine"] = {"Default","Don't Press","Spring","DIY Tripmine","Trick or Treat","Dev-in-the-Box","Hazard Sign","Glorious Subspace Tripmine"},
+    ["Trowel"]            = {"Default","Plastic Shovel","Garden Shovel","Paintbrush","Pumpkin Carver","Snow Shovel","Scooper","Glorious Trowel"},
+    ["Uzi"]               = {"Default","Water Uzi","Electro Uzi","Keyzi","Demon Uzi","Pine Uzi","Ducky Uzi","Glorious Uzi"},
+    ["War Horn"]          = {"Default","Trumpet","Megaphone","Air Horn","Boneclaw Horn","Mammoth Horn","Lifeguard Whistle","Glorious War Horn"},
+    ["Warper"]            = {"Default","Electropunk Warper","Experiment W4","Frost Warper","Glitter Warper","Arcane Warper","Hotel Bell","Bubbler","Glorious Warper"},
+    ["Warpstone"]         = {"Default","Cyber Warpstone","Teleport Disc","Electropunk Warpstone","Warpbone","Warpstar","Unstable Warpstone","Warpeye","Warp Juice","Glorious Warpstone"},
+}
+
+local WeaponList = {}
+for w in pairs(SkinLists) do table.insert(WeaponList, w) end
+table.sort(WeaponList, function(a, b) return a:lower() < b:lower() end)
+
+local DynamicLists = { Wrap = {"WIP [Equip in inventory]"}, Charm = {"WIP [Equip in inventory]"}, Finisher = {"WIP"} }
+local function buildDynamicLists()
+    if not CosmeticLibrary or not CosmeticLibrary.Cosmetics then return end
+    for name, data in pairs(CosmeticLibrary.Cosmetics) do
+        if type(data) == "table" and data.Type and name ~= "Default" then
+            local t = data.Type:lower()
+            if t:find("wrap", 1, true) then
+                if not table.find(DynamicLists.Wrap, name) then table.insert(DynamicLists.Wrap, name) end
+            elseif t:find("charm", 1, true) then
+                if not table.find(DynamicLists.Charm, name) then table.insert(DynamicLists.Charm, name) end
+            elseif t:find("finish", 1, true) or t:find("kill", 1, true) then
+                if not table.find(DynamicLists.Finisher, name) then table.insert(DynamicLists.Finisher, name) end
+            end
+        end
+    end
+    for _, list in pairs(DynamicLists) do
+        table.sort(list, function(a, b) return a:lower() < b:lower() end)
+    end
+end
+
+local function getOptions(weapon, type)
+    if type == "Skin"     then return SkinLists[weapon] or {"Default"}
+    elseif type == "Wrap"     then return DynamicLists.Wrap
+    elseif type == "Charm"    then return DynamicLists.Charm
+    elseif type == "Finisher" then return DynamicLists.Finisher end
+    return {"Default"}
+end
+
+-- ── Module locals ──────────────────────────────────────────────────────────
+local CosmeticLibrary, ItemLibrary, ReplicatedClass, DataController
+local ClientItem, ClientViewModelModule, EnumLibrary
+local ClientEntity      = nil   -- NEW: for finisher injection
+local FighterController = nil   -- NEW: for UseItem weapon tracking
+local lastUsedWeapon    = nil   -- NEW: weapon used in the last kill
+
+local _constructingWeapon = nil
+local _hooksApplied       = false
+local _cosmeticCache      = {}
+local _cosmeticLookup     = nil
+local _wrapDebounces      = {}
+local _wdCache            = {}
+
+local function getSafeEnum(obj, enumName)
+    local ok, val = pcall(obj.ToEnum, obj, enumName)
+    return ok and val or enumName
+end
+
+local function _ensureLookup()
+    if _cosmeticLookup or not CosmeticLibrary or not CosmeticLibrary.Cosmetics then return end
+    _cosmeticLookup = {}
+    for k in pairs(CosmeticLibrary.Cosmetics) do
+        if type(k) == "string" then _cosmeticLookup[k:lower()] = k end
+    end
+end
+
+local function buildCosmeticData(skinName)
+    if _cosmeticCache[skinName] then return _cosmeticCache[skinName] end
+    if not CosmeticLibrary or not CosmeticLibrary.Cosmetics then return nil end
+    _ensureLookup()
+    local key  = (CosmeticLibrary.Cosmetics[skinName] and skinName) or (_cosmeticLookup and _cosmeticLookup[skinName:lower()])
+    local base = key and CosmeticLibrary.Cosmetics[key]
+    if not base then return nil end
+    local d = {
+        Name                = skinName,
+        Type                = base.Type or "Skin",
+        ItemName            = base.ItemName,
+        Rarity              = base.Rarity,
+        Image               = base.Image,
+        ImageHighResolution = base.ImageHighResolution,
+        ImageScale          = base.ImageScale,
+        Description         = base.Description,
+        Seed                = math.random(1, 1e6),
+    }
+    if EnumLibrary then
+        pcall(function()
+            local e = EnumLibrary:ToEnum(skinName)
+            if e then d.Enum = e; d.ObjectID = e end
+        end)
+    end
+    _cosmeticCache[skinName] = d
+    return d
+end
+
+local function buildWrapData(n)
+    local d = buildCosmeticData(n)
+    if not d then return nil end
+    local w = {}
+    for k, v in pairs(d) do w[k] = v end
+    w.Type = "Wrap"
+    return w
+end
+
+local function getLobbyWrap(wn)
+    local lc = lobbyCosmetics[wn]
+    return lc and lc.Wrap or nil
+end
+
+local function applyEquippedSkin(wType, skinName)
+    if skinName == "Default" or skinName == nil then
+        EquippedSkins[wType] = nil
+    else
+        EquippedSkins[wType]      = skinName
+        _cosmeticCache[skinName]  = nil
+    end
+    _wdCache = {}
+    MasterData.Profiles[MasterData.CurrentProfile] = EquippedSkins
+    saveMasterData()
+end
+
+local function _applyHooks()
+    if _hooksApplied then return end
+    _hooksApplied = true
+
+    -- CosmeticLibrary ownership patches
+    if CosmeticLibrary then
+        CosmeticLibrary.OwnsCosmeticNormally     = function() return true end
+        CosmeticLibrary.OwnsCosmeticUniversally  = function() return true end
+        CosmeticLibrary.OwnsCosmeticForSomething = function() return true end
+        CosmeticLibrary.OwnsCosmeticForWeapon    = function() return true end
+        local _o = CosmeticLibrary.OwnsCosmetic
+        if _o then
+            CosmeticLibrary.OwnsCosmetic = function(self, inv, name, weapon)
+                if name and type(name) == "string" and name:find("MISSING_", 1, true) then
+                    return _o(self, inv, name, weapon)
+                end
+                return true
+            end
+        end
+    end
+
+    -- ClientItem._CreateViewModel
+    if ClientItem and ClientItem._CreateViewModel then
+        local _o = ClientItem._CreateViewModel
+        ClientItem._CreateViewModel = function(self, vmRef)
+            if not self.ClientFighter or self.ClientFighter.Player ~= LocalPlayer then return _o(self, vmRef) end
+            local wName = self.Name
+            _constructingWeapon = wName
+            local sn  = EquippedSkins[wName]
+            local wn2 = EquippedSkins[wName .. "_wrap"]
+            local wn3 = EquippedSkins[wName .. "_charm"]
+            if (sn and sn ~= "Default" or wn2 or wn3) and vmRef then
+                pcall(function()
+                    local dk = getSafeEnum(self, "Data")
+                    if not dk then return end
+                    if vmRef[dk] then
+                        if sn and sn ~= "Default" then
+                            local cd = buildCosmeticData(sn)
+                            if cd then
+                                vmRef[dk][getSafeEnum(self, "Skin")] = cd
+                                vmRef[dk][getSafeEnum(self, "Name")] = sn
+                            end
+                        end
+                        if wn2 then local wd = buildWrapData(wn2); if wd then vmRef[dk]["Wrap"]  = wd  end end
+                        if wn3 then local cd_ch = buildCosmeticData(wn3); if cd_ch then vmRef[dk]["Charm"] = cd_ch end end
+                    end
+                end)
+            end
+            local r = _o(self, vmRef)
+            _constructingWeapon = nil
+            return r
+        end
+    end
+
+    -- ClientViewModel
+    if ClientViewModelModule then
+        if ClientViewModelModule.GetWrap then
+            local _o = ClientViewModelModule.GetWrap
+            ClientViewModelModule.GetWrap = function(self)
+                local wn = self.ClientItem and self.ClientItem.Name
+                local wp = self.ClientItem and self.ClientItem.ClientFighter and self.ClientItem.ClientFighter.Player
+                if wn and wp == LocalPlayer then
+                    local wn2 = EquippedSkins[wn .. "_wrap"]
+                    if wn2 then local wd = buildWrapData(wn2); if wd then return wd end end
+                    local lw = getLobbyWrap(wn)
+                    if lw then return lw end
+                end
+                return _o and _o(self) or nil
+            end
+        end
+
+        local _o = ClientViewModelModule.new
+        if _o then
+            ClientViewModelModule.new = function(rd, ci)
+                local wp = ci and ci.ClientFighter and ci.ClientFighter.Player
+                if not wp or wp ~= LocalPlayer then return _o(rd, ci) end
+                local wn = _constructingWeapon or (ci and ci.Name)
+                if wn then
+                    pcall(function()
+                        if not ReplicatedClass then return end
+                        local RC_D = getSafeEnum(ReplicatedClass, "Data")
+                        local RC_S = getSafeEnum(ReplicatedClass, "Skin")
+                        if not RC_D or not RC_S then return end
+                        if type(rd) ~= "table" then return end
+                        rd[RC_D] = rd[RC_D] or {}
+                        local sn = EquippedSkins[wn]
+                        if sn and sn ~= "Default" then
+                            local cd = buildCosmeticData(sn)
+                            if cd then
+                                rd[RC_D][RC_S] = cd
+                                local RC_N = getSafeEnum(ReplicatedClass, "Name")
+                                if RC_N then rd[RC_D][RC_N] = sn end
+                            end
+                        end
+                        local wn2 = EquippedSkins[wn .. "_wrap"]
+                        if wn2 then local wd = buildWrapData(wn2); if wd then rd[RC_D]["Wrap"] = wd end end
+                        local wn3 = EquippedSkins[wn .. "_charm"]
+                        if wn3 then local cd_ch = buildCosmeticData(wn3); if cd_ch then rd[RC_D]["Charm"] = cd_ch end end
+                    end)
+                end
+                local vm = _o(rd, ci)
+                if vm and wp == LocalPlayer then
+                    if _wrapDebounces[vm] then task.cancel(_wrapDebounces[vm]) end
+                    _wrapDebounces[vm] = task.delay(0.15, function()
+                        _wrapDebounces[vm] = nil
+                        pcall(function() if not vm._destroyed and vm._UpdateWrap then vm:_UpdateWrap() end end)
+                    end)
+                end
+                return vm
+            end
+        end
+    end
+
+    -- DataController patches
+    if DataController then
+        local _ogs = DataController.GetSetting
+        if _ogs then
+            DataController.GetSetting = function(self, setting)
+                if setting == "Wraps Disabled" then return false end
+                return _ogs(self, setting)
+            end
+        end
+
+        local _og  = DataController.Get
+        local _inv = setmetatable({}, {
+            __index    = function() return true end,
+            __newindex = function() end,
+            __len      = function() return 0 end,
+            __pairs    = function() return next, {}, nil end,
+            __ipairs   = function() return next, {}, nil end,
+        })
+        DataController.Get = function(self, k)
+            if k == "CosmeticInventory" then return _inv end
+            return _og(self, k)
+        end
+
+        local _ogWD = DataController.GetWeaponData
+        DataController.GetWeaponData = function(self, wn)
+            local ok, data = pcall(_ogWD, self, wn)
+            if not ok or data == nil then return data end
+            local sn  = EquippedSkins[wn]
+            local wn2 = EquippedSkins[wn .. "_wrap"]
+            local wn3 = EquippedSkins[wn .. "_charm"]
+            local lw  = getLobbyWrap(wn)
+            local hs  = sn and sn ~= "Default"
+            if not hs and not wn2 and not lw and not wn3 then return data end
+            local cacheKey = wn .. "|" .. tostring(sn) .. "|" .. tostring(wn2) .. "|" .. tostring(lw and lw.Name) .. "|" .. tostring(wn3)
+            if _wdCache[cacheKey] then return _wdCache[cacheKey] end
+            local c = table.clone(data)
+            if hs  then local cd = buildCosmeticData(sn); if cd then c.Skin = cd end end
+            if wn2 then local wd = buildWrapData(wn2);    if wd then c.Wrap = wd end
+            elseif lw then c.Wrap = lw end
+            if wn3 then local cd_ch = buildCosmeticData(wn3); if cd_ch then c.Charm = cd_ch end end
+            _wdCache[cacheKey] = c
+            return c
+        end
+    end
+
+    -- ── FINISHER INJECTION ────────────────────────────────────────────────
+    -- GetWeaponData patching cannot affect finishers; they arrive via
+    -- ClientEntity.ReplicateFromServer("FinisherEffect", ...). This is the
+    -- only working path to swap in an equipped finisher.
+    if ClientEntity and ClientEntity.ReplicateFromServer then
+        local _o = ClientEntity.ReplicateFromServer
+        ClientEntity.ReplicateFromServer = function(self, action, ...)
+            if action == "FinisherEffect" then
+                local args       = {...}
+                -- args[3] = killer identifier (may be an EnumLibrary userdata)
+                local killerRaw  = args[3]
+                local killerName = tostring(killerRaw)
+                if EnumLibrary and EnumLibrary.FromEnum then
+                    local ok, decoded = pcall(EnumLibrary.FromEnum, EnumLibrary, killerRaw)
+                    if ok and decoded then killerName = tostring(decoded) end
+                end
+                local isOurKill = killerName:lower() == LocalPlayer.Name:lower()
+                if isOurKill and lastUsedWeapon then
+                    local finisherName = EquippedSkins[lastUsedWeapon .. "_finisher"]
+                    if finisherName and EnumLibrary then
+                        local ok, finisherEnum = pcall(EnumLibrary.ToEnum, EnumLibrary, finisherName)
+                        if ok and finisherEnum then
+                            args[1] = finisherEnum
+                            return _o(self, action, table.unpack(args))
+                        end
+                    end
+                end
+            end
+            return _o(self, action, ...)
+        end
+    end
+end
+
+-- ── Library loader ────────────────────────────────────────────────────────
+task.spawn(function()
+    local Mods   = ReplicatedStorage:WaitForChild("Modules",   20)
+    if not Mods then return end
+    local PSMods = PlayerScripts:WaitForChild("Modules",       20)
+    if not PSMods then return end
+    local Ctrls  = PlayerScripts:FindFirstChild("Controllers")
+
+    pcall(function() CosmeticLibrary = require(Mods:WaitForChild("CosmeticLibrary", 15)) end)
+    pcall(function() ItemLibrary     = require(Mods:WaitForChild("ItemLibrary",     15)) end)
+    pcall(function() ReplicatedClass = require(Mods:WaitForChild("ReplicatedClass", 15)) end)
+    pcall(function() EnumLibrary     = require(Mods:WaitForChild("EnumLibrary",     15)) end)
+
+    -- NEW: FighterController for UseItem weapon tracking
+    pcall(function()
+        if Ctrls then
+            FighterController = require(Ctrls:WaitForChild("FighterController", 10))
+        end
+    end)
+
+    pcall(function()
+        local CIF      = PSMods:WaitForChild("ClientReplicatedClasses", 15)
+        if not CIF then return end
+        local CFighter = CIF:WaitForChild("ClientFighter", 15)
+        if not CFighter then return end
+        local CItemInst= CFighter:WaitForChild("ClientItem", 15)
+        if not CItemInst then return end
+        ClientItem = require(CItemInst)
+        local CVMInst = CItemInst:WaitForChild("ClientViewModel", 15)
+        if CVMInst then ClientViewModelModule = require(CVMInst) end
+    end)
+
+    -- NEW: ClientEntity for finisher injection
+    pcall(function()
+        local CIF = PSMods:WaitForChild("ClientReplicatedClasses", 15)
+        if not CIF then return end
+        local CE  = CIF:FindFirstChild("ClientEntity")
+        if CE then ClientEntity = require(CE) end
+    end)
+
+    pcall(function()
+        if not Ctrls then return end
+        local PDC = Ctrls:WaitForChild("PlayerDataController", 15)
+        if PDC then DataController = require(PDC) end
+    end)
+
+    buildDynamicLists()
+    _applyHooks()
+
+    _G._zkxListsReady = true
+end)
+
+-- ── Namecall hook (EquipCosmetic + UseItem tracker) ───────────────────────
+task.spawn(function()
+    if not (hookmetamethod and newcclosure and getnamecallmethod) then return end
+    local remotes            = ReplicatedStorage:FindFirstChild("Remotes")
+    local dataRemotes        = remotes and remotes:FindFirstChild("Data")
+    local equipRemote        = dataRemotes and dataRemotes:FindFirstChild("EquipCosmetic")
+    local favoriteRemote     = dataRemotes and dataRemotes:FindFirstChild("FavoriteCosmetic")
+    local replicationRemotes = remotes and remotes:FindFirstChild("Replication")
+    local fighterRemotes     = replicationRemotes and replicationRemotes:FindFirstChild("Fighter")
+    local useItemRemote      = fighterRemotes and fighterRemotes:FindFirstChild("UseItem") -- NEW
+
+    local old
+    old = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+        local m = getnamecallmethod()
+        if m == "Kick" and self == LocalPlayer then return nil end
+        if m == "FireServer" and typeof(self) == "Instance" then
+            local args = {...}
+
+            -- NEW: track which weapon was just used so finisher hook knows
+            if useItemRemote and self == useItemRemote then
+                local objectID = args[1]
+                pcall(function()
+                    if not FighterController then return end
+                    local fighter = FighterController:GetFighter(LocalPlayer)
+                    if not fighter or not fighter.Items then return end
+                    for _, item in pairs(fighter.Items) do
+                        if item:Get("ObjectID") == objectID then
+                            lastUsedWeapon = item.Name
+                            break
+                        end
+                    end
+                end)
+            end
+
+            if equipRemote and self == equipRemote then
+                local wn, ct, cn, options = args[1], args[2], args[3], args[4] or {}
+                if cn and cn ~= "None" and cn ~= "" then
+                    local inv = DataController:Get("CosmeticInventory")
+                    if inv and rawget(inv, cn) then return old(self, ...) end
+                end
+                equipped = equipped or {}  -- safety
+                if not wn then return old(self, ...) end
+                if not cn or cn == "None" or cn == "" then
+                    if EquippedSkins[wn .. "_" .. tostring(ct):lower()] then
+                        applyEquippedSkin(wn .. "_" .. tostring(ct):lower(), nil)
+                    end
+                else
+                    local cosType = tostring(ct)
+                    local key = cosType == "Skin" and wn or (wn .. "_" .. cosType:lower())
+                    applyEquippedSkin(key, cn)
+                end
+                task.defer(function()
+                    pcall(function() DataController.CurrentData:Replicate("WeaponInventory") end)
+                    task.wait(0.2)
+                    saveMasterData()
+                end)
+                return
+            end
+
+            if favoriteRemote and self == favoriteRemote then
+                local a1, a2, a3 = args[1], args[2], args[3]
+                if CosmeticLibrary and CosmeticLibrary.Cosmetics then
+                    local cosmetic = CosmeticLibrary.Cosmetics[a2]
+                    if cosmetic then
+                        -- track in lobbyCosmetics for wrap passthrough
+                        lobbyCosmetics[a1] = lobbyCosmetics[a1] or {}
+                        lobbyCosmetics[a1][a2] = a3 or nil
+                    end
+                end
+                return old(self, ...)
+            end
+        end
+        return old(self, ...)
+    end))
+end)
+
+-- ── Aimbot ────────────────────────────────────────────────────────────────
+do
+    if getgenv().ZkxAimbot and getgenv().ZkxAimbot.Cleanup then pcall(getgenv().ZkxAimbot.Cleanup) end
+
+    local Aim = {
+        Enabled = false, Mode = "Hold",
+        Key = Enum.UserInputType.MouseButton2, KeyName = "MouseButton2",
+        Listening = false, ListenStart = 0,
+        FOV = 120, ShowFOV = true, Prediction = 0.15,
+        MaxDistance = 1000, TeamCheck = true,
+        Holding = false, Toggled = false,
+    }
+    local function aimActive()
+        if not Aim.Enabled then return false end
+        if Aim.Mode == "Always" then return true end
+        if Aim.Mode == "Hold"   then return Aim.Holding end
+        if Aim.Mode == "Toggle" then return Aim.Toggled end
+        return false
+    end
+    local pg = LocalPlayer:WaitForChild("PlayerGui")
+    local fovGui = Instance.new("ScreenGui")
+    fovGui.Name = "ZkxFOV"; fovGui.ResetOnSpawn = false
+    fovGui.IgnoreGuiInset = true; fovGui.DisplayOrder = 9998; fovGui.Parent = pg
+    local ring = Instance.new("Frame")
+    ring.AnchorPoint = Vector2.new(0.5,0.5); ring.BackgroundTransparency = 0.99
+    ring.BackgroundColor3 = Color3.fromRGB(255,255,255)
+    ring.Size = UDim2.fromOffset(Aim.FOV*2, Aim.FOV*2); ring.Visible = false; ring.Parent = fovGui
+    Instance.new("UICorner", ring).CornerRadius = UDim.new(1,0)
+    local rs = Instance.new("UIStroke", ring)
+    rs.Color = Color3.fromRGB(255,255,255); rs.Thickness = 2; rs.Transparency = 0.25
+    local aimBtnGui = Instance.new("ScreenGui")
+    aimBtnGui.Name = "ZkxAimBtn"; aimBtnGui.ResetOnSpawn = false
+    aimBtnGui.IgnoreGuiInset = true; aimBtnGui.DisplayOrder = 9997; aimBtnGui.Parent = pg
+    local aimBtn = Instance.new("TextButton")
+    aimBtn.Size = UDim2.fromOffset(74,74); aimBtn.Position = UDim2.new(1,-100,0.6,0)
+    aimBtn.BackgroundColor3 = Color3.fromRGB(28,28,32); aimBtn.BackgroundTransparency = 0.2
+    aimBtn.TextColor3 = Color3.fromRGB(240,240,245); aimBtn.Font = Enum.Font.GothamBold
+    aimBtn.TextSize = 15; aimBtn.Text = "AIM"; aimBtn.AutoButtonColor = false
+    aimBtn.Visible = false; aimBtn.Parent = aimBtnGui
+    Instance.new("UICorner", aimBtn).CornerRadius = UDim.new(1,0)
+    local abs = Instance.new("UIStroke", aimBtn)
+    abs.Color = Color3.fromRGB(80,80,90); abs.Thickness = 1
+    aimBtn.InputBegan:Connect(function(i)
+        if i.UserInputType ~= Enum.UserInputType.Touch and i.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+        if Aim.Mode == "Hold" then Aim.Holding = true elseif Aim.Mode == "Toggle" then Aim.Toggled = not Aim.Toggled end
+    end)
+    aimBtn.InputEnded:Connect(function(i)
+        if i.UserInputType ~= Enum.UserInputType.Touch and i.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+        if Aim.Mode == "Hold" then Aim.Holding = false end
+    end)
+    local MOUSE_NAMES = {}
+    for _, n in ipairs({"MouseButton1","MouseButton2","MouseButton3","MouseButton4","MouseButton5"}) do
+        local ok, e = pcall(function() return Enum.UserInputType[n] end)
+        if ok and e then MOUSE_NAMES[e] = n end
+    end
+    local function inputIdentity(input)
+        if input.UserInputType == Enum.UserInputType.Keyboard then
+            if input.KeyCode ~= Enum.KeyCode.Unknown then return input.KeyCode, input.KeyCode.Name end
+        elseif MOUSE_NAMES[input.UserInputType] then return input.UserInputType, MOUSE_NAMES[input.UserInputType] end
+        return nil
+    end
+    local function matchesBind(input) local id = inputIdentity(input); return id ~= nil and id == Aim.Key end
+    local kbBegan = UserInputService.InputBegan:Connect(function(input, gpe)
+        if Aim.Listening then
+            if os.clock() - Aim.ListenStart < 0.2 then return end
+            local id, name = inputIdentity(input)
+            if id then Aim.Key, Aim.KeyName, Aim.Listening = id, name, false
+                if Aim.OnRebind then pcall(Aim.OnRebind, name) end end
+            return
+        end
+        if gpe and input.UserInputType == Enum.UserInputType.Keyboard then return end
+        if not matchesBind(input) then return end
+        if Aim.Mode == "Hold" then Aim.Holding = true elseif Aim.Mode == "Toggle" then Aim.Toggled = not Aim.Toggled end
+    end)
+    local kbEnded = UserInputService.InputEnded:Connect(function(input)
+        if not matchesBind(input) then return end
+        if Aim.Mode == "Hold" then Aim.Holding = false end
+    end)
+    local function getAimOrigin()
+        if UserInputService.MouseEnabled then return UserInputService:GetMouseLocation() end
+        local vp = workspace.CurrentCamera.ViewportSize; return Vector2.new(vp.X/2, vp.Y/2)
+    end
+    local function getTargetPart(char)
+        return char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart") or char.PrimaryPart
+    end
+    local function isValidTarget(plr)
+        if plr == LocalPlayer then return false end
+        if Aim.TeamCheck and plr.Team and LocalPlayer.Team and plr.Team == LocalPlayer.Team then return false end
+        local char = plr.Character; if not char then return false end
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum and hum.Health <= 0 then return false end; return true
+    end
+    local function getClosestTarget()
+        local cam = workspace.CurrentCamera; local origin = getAimOrigin(); local camPos = cam.CFrame.Position
+        local best, bestDist, bestPredicted = nil, Aim.FOV, nil
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if isValidTarget(plr) then
+                local part = getTargetPart(plr.Character)
+                if part then
+                    local wd = (part.Position - camPos).Magnitude
+                    if wd <= Aim.MaxDistance then
+                        local pred = part.Position + (part.AssemblyLinearVelocity * Aim.Prediction)
+                        local sp = cam:WorldToViewportPoint(pred)
+                        if sp.Z > 0 then
+                            local sd = (Vector2.new(sp.X, sp.Y) - origin).Magnitude
+                            if sd <= bestDist then best, bestDist, bestPredicted = part, sd, pred end
+                        end
+                    end
+                end
+            end
+        end
+        return best, bestPredicted
+    end
+    local conn = RunService.RenderStepped:Connect(function()
+        if Aim.ShowFOV then
+            local o = getAimOrigin(); ring.Visible = true
+            ring.Size = UDim2.fromOffset(Aim.FOV*2, Aim.FOV*2); ring.Position = UDim2.fromOffset(o.X, o.Y)
+        else ring.Visible = false end
+        local wantBtn = Aim.Enabled and Aim.Mode ~= "Always" and UserInputService.TouchEnabled
+        aimBtn.Visible = wantBtn
+        local on = aimActive()
+        aimBtn.BackgroundColor3 = on and Color3.fromRGB(40,120,60) or Color3.fromRGB(28,28,32)
+        if not on then return end
+        local _, predicted = getClosestTarget(); if not predicted then return end
+        local cam = workspace.CurrentCamera
+        if UserInputService.MouseEnabled and mousemoverel then
+            local sp = cam:WorldToViewportPoint(predicted); if sp.Z <= 0 then return end
+            local move = Vector2.new(sp.X, sp.Y) - getAimOrigin()
+            if move.Magnitude > 0.5 then pcall(mousemoverel, move.X, move.Y) end
+        else cam.CFrame = CFrame.new(cam.CFrame.Position, predicted) end
+    end)
+    getgenv().ZkxAimbot = {
+        State = Aim,
+        Cleanup = function()
+            if conn    then conn:Disconnect()    end
+            if kbBegan then kbBegan:Disconnect() end
+            if kbEnded then kbEnded:Disconnect() end
+            if fovGui    then fovGui:Destroy()    end
+            if aimBtnGui then aimBtnGui:Destroy() end
+        end,
+    }
+end
+
+-- ── ESP ───────────────────────────────────────────────────────────────────
+do
+    if getgenv().ZkxESP and getgenv().ZkxESP.Cleanup then pcall(getgenv().ZkxESP.Cleanup) end
+    local ESP = {
+        Enabled=false, Box=true, Name=true, Distance=true, HealthBar=true,
+        Tracer=false, Chams=true, TeamCheck=true, TeamColor=false,
+        MaxDistance=1000, Color=Color3.fromRGB(255,60,60),
+    }
+    local pg = LocalPlayer:WaitForChild("PlayerGui")
+    local gui = Instance.new("ScreenGui")
+    gui.Name="ZkxESP"; gui.ResetOnSpawn=false; gui.IgnoreGuiInset=true
+    gui.DisplayOrder=9996; gui.Parent=pg
+    local objects = {}
+    local function makeFrame(parent, stroke)
+        local f = Instance.new("Frame"); f.BackgroundTransparency = stroke and 1 or 0
+        f.BorderSizePixel=0; f.Visible=false; f.Parent=parent
+        if stroke then local s=Instance.new("UIStroke",f); s.Thickness=1; s.Color=Color3.new(1,1,1) end
+        return f
+    end
+    local function makeLabel(parent)
+        local t=Instance.new("TextLabel"); t.BackgroundTransparency=1
+        t.Font=Enum.Font.GothamBold; t.TextSize=13; t.TextStrokeTransparency=0.4
+        t.TextColor3=Color3.new(1,1,1); t.Visible=false; t.Parent=parent; return t
+    end
+    local function createObjects()
+        local o = {box=makeFrame(gui,true),name=makeLabel(gui),dist=makeLabel(gui),
+                   hpBg=makeFrame(gui,false),hpFill=makeFrame(gui,false),
+                   tracer=makeFrame(gui,false),highlight=nil}
+        o.hpBg.BackgroundColor3=Color3.fromRGB(0,0,0); o.hpBg.BackgroundTransparency=0.35
+        o.tracer.BackgroundColor3=Color3.new(1,1,1); o.tracer.AnchorPoint=Vector2.new(0.5,2)
+        return o
+    end
+    local function hideAll(o)
+        o.box.Visible=false; o.name.Visible=false; o.dist.Visible=false
+        o.hpBg.Visible=false; o.hpFill.Visible=false; o.tracer.Visible=false
+        if o.highlight then o.highlight.Enabled=false end
+    end
+    local function colorFor(plr) if ESP.TeamColor and plr.Team then return plr.TeamColor.Color end; return ESP.Color end
+    local function isEnemy(plr)
+        if not ESP.TeamCheck then return true end
+        if plr.Team and LocalPlayer.Team and plr.Team==LocalPlayer.Team then return false end; return true
+    end
+    local conn = RunService.RenderStepped:Connect(function()
+        local cam = workspace.CurrentCamera; if not cam then return end; local vp = cam.ViewportSize
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= LocalPlayer then
+                local o = objects[plr]; if not o then o=createObjects(); objects[plr]=o end
+                local char=plr.Character; local hrp=char and char:FindFirstChild("HumanoidRootPart")
+                local hum=char and char:FindFirstChildOfClass("Humanoid"); local head=char and char:FindFirstChild("Head")
+                local show = ESP.Enabled and hrp and hum and hum.Health>0 and isEnemy(plr)
+                if show then
+                    local wd=(hrp.Position-cam.CFrame.Position).Magnitude; show=wd<=ESP.MaxDistance
+                    if show then
+                        local col=colorFor(plr)
+                        local topW=(head and head.Position or hrp.Position)+Vector3.new(0,1.5,0)
+                        local botW=hrp.Position-Vector3.new(0,3,0)
+                        local top=cam:WorldToViewportPoint(topW); local bot=cam:WorldToViewportPoint(botW)
+                        if top.Z>0 and bot.Z>0 then
+                            local h=math.abs(top.Y-bot.Y); local w=h*0.55
+                            local cx=top.X; local left=cx-w/2; local topY=math.min(top.Y,bot.Y)
+                            if ESP.Box then
+                                o.box.Position=UDim2.fromOffset(left,topY); o.box.Size=UDim2.fromOffset(w,h)
+                                o.box:FindFirstChildOfClass("UIStroke").Color=col; o.box.Visible=true
+                            else o.box.Visible=false end
+                            if ESP.Name then
+                                o.name.Text=plr.DisplayName~="" and plr.DisplayName or plr.Name
+                                o.name.TextColor3=col; o.name.Size=UDim2.fromOffset(w+60,16)
+                                o.name.Position=UDim2.fromOffset(cx-(w+60)/2,topY-18); o.name.Visible=true
+                            else o.name.Visible=false end
+                            if ESP.Distance then
+                                o.dist.Text=("%dm"):format(wd); o.dist.TextColor3=col
+                                o.dist.Size=UDim2.fromOffset(w+60,14)
+                                o.dist.Position=UDim2.fromOffset(cx-(w+60)/2,topY+h+2); o.dist.Visible=true
+                            else o.dist.Visible=false end
+                            if ESP.HealthBar then
+                                local pct=math.clamp(hum.Health/math.max(hum.MaxHealth,1),0,1)
+                                o.hpBg.Position=UDim2.fromOffset(left-6,topY); o.hpBg.Size=UDim2.fromOffset(3,h); o.hpBg.Visible=true
+                                o.hpFill.AnchorPoint=Vector2.new(0,1); o.hpFill.Position=UDim2.fromOffset(left-6,topY+h)
+                                o.hpFill.Size=UDim2.fromOffset(3,h*pct)
+                                o.hpFill.BackgroundColor3=Color3.fromRGB(math.floor(255*(1-pct)),math.floor(255*pct),40)
+                                o.hpFill.Visible=true
+                            else o.hpBg.Visible=false; o.hpFill.Visible=false end
+                            if ESP.Tracer then
+                                local from=Vector2.new(vp.X/2,vp.Y); local to=Vector2.new(cx,topY+h); local diff=to-from
+                                o.tracer.Position=UDim2.fromOffset(from.X,from.Y); o.tracer.Size=UDim2.fromOffset(diff.Magnitude,1)
+                                o.tracer.Rotation=math.deg(math.atan2(diff.Y,diff.X)); o.tracer.BackgroundColor3=col; o.tracer.Visible=true
+                            else o.tracer.Visible=false end
+                        else o.box.Visible=false; o.name.Visible=false; o.dist.Visible=false
+                             o.hpBg.Visible=false; o.hpFill.Visible=false; o.tracer.Visible=false end
+                        if ESP.Chams then
+                            if not o.highlight then
+                                o.highlight=Instance.new("Highlight")
+                                o.highlight.DepthMode=Enum.HighlightDepthMode.AlwaysOnTop
+                                o.highlight.FillTransparency=0.6; o.highlight.OutlineTransparency=0
+                                o.highlight.Parent=gui
+                            end
+                            o.highlight.Adornee=char; o.highlight.FillColor=col
+                            o.highlight.OutlineColor=col; o.highlight.Enabled=true
+                        elseif o.highlight then o.highlight.Enabled=false end
+                    else hideAll(o) end
+                else hideAll(o) end
+            end
+        end
+    end)
+    local removing = Players.PlayerRemoving:Connect(function(plr)
+        local o=objects[plr]; if not o then return end
+        for _, k in ipairs({"box","name","dist","hpBg","hpFill","tracer"}) do
+            pcall(function() o[k]:Destroy() end)
+        end
+        if o.highlight then pcall(function() o.highlight:Destroy() end) end
+        objects[plr]=nil
+    end)
+    getgenv().ZkxESP = {
+        State=ESP,
+        Cleanup=function()
+            if conn    then conn:Disconnect()    end
+            if removing then removing:Disconnect() end
+            if gui then gui:Destroy() end
+        end,
+    }
+end
+
+-- ── Obsidian UI ───────────────────────────────────────────────────────────
+local success, Library = pcall(function()
+    return loadstring(game:HttpGet("https://raw.githubusercontent.com/deividcomsono/Obsidian/refs/heads/main/Library.lua"))()
+end)
+if not success or type(Library) ~= "table" then
+    warn("[ZkxUA] Failed to load Obsidian."); return
+end
+
+local Options      = Library.Options
+local Toggles      = Library.Toggles
+local isMobile     = UserInputService.TouchEnabled and not UserInputService.MouseEnabled
+local savedKeybind = Enum.KeyCode[MasterData.Settings.ToggleKey] or Enum.KeyCode.RightControl
+
+local Window = Library:CreateWindow({
+    Title = "Zkx Hub", Footer = "",
+    NotifySide = "Right", ShowCustomCursor = true,
+})
+
+local menuVisible = true
+local function setWindowVisible(state)
+    if state == menuVisible then return end
+    menuVisible = state
+    pcall(function() Library:Toggle() end)
+end
+
+local function buildToggleButton()
+    local pg = Players.LocalPlayer:WaitForChild("PlayerGui")
+    local tGui = Instance.new("ScreenGui")
+    tGui.Name="ZkxToggleGui"; tGui.ResetOnSpawn=false; tGui.IgnoreGuiInset=true
+    tGui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling; tGui.DisplayOrder=9999; tGui.Parent=pg
+    local btn = Instance.new("TextButton")
+    btn.Size=UDim2.new(0,96,0,40); btn.Position=UDim2.new(0,12,0,120)
+    btn.BackgroundColor3=Color3.fromRGB(28,28,32); btn.BackgroundTransparency=0.15
+    btn.TextColor3=Color3.fromRGB(240,240,245); btn.Font=Enum.Font.GothamBold
+    btn.TextSize=14; btn.Text="Hide Menu"; btn.AutoButtonColor=true; btn.Parent=tGui
+    Instance.new("UICorner",btn).CornerRadius=UDim.new(0,10)
+    local st=Instance.new("UIStroke",btn); st.Color=Color3.fromRGB(80,80,90); st.Thickness=1
+    local dragging,dragStart,startPos,moved=false,nil,nil,false
+    btn.InputBegan:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.Touch or i.UserInputType==Enum.UserInputType.MouseButton1 then
+            dragging=true; moved=false; dragStart=i.Position; startPos=btn.Position end
+    end)
+    UserInputService.InputChanged:Connect(function(i)
+        if dragging and (i.UserInputType==Enum.UserInputType.Touch or i.UserInputType==Enum.UserInputType.MouseMovement) then
+            local d=i.Position-dragStart; if d.Magnitude>6 then moved=true end
+            btn.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+d.X,startPos.Y.Scale,startPos.Y.Offset+d.Y) end
+    end)
+    UserInputService.InputEnded:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.Touch or i.UserInputType==Enum.UserInputType.MouseButton1 then
+            if dragging and not moved then setWindowVisible(not menuVisible); btn.Text=menuVisible and "Hide Menu" or "Show Menu" end
+            dragging=false end
+    end)
+end
+pcall(buildToggleButton)
+
+local tabs = {
+    Home      = Window:AddTab("Home",      "rbxassetid://10723407389"),
+    Cosmetics = Window:AddTab("Cosmetics", "rbxassetid://13577018040"),
+    Aimbot    = Window:AddTab("Aimbot",    "rbxassetid://10709818534"),
+    ESP       = Window:AddTab("ESP",       "rbxassetid://114590141647644"),
+    Settings  = Window:AddTab("Settings",  "rbxassetid://10734950309"),
+}
+
+local sections = {
+    HomeLeft  = tabs.Home:AddLeftGroupbox("Home"),
+    HomeRight = tabs.Home:AddRightGroupbox("Home"),
+    CosmLeft  = tabs.Cosmetics:AddLeftGroupbox("Weapon Cosmetics"),
+    CosmRight = tabs.Cosmetics:AddRightGroupbox("Skin Preview"),
+    Config    = tabs.Settings:AddLeftGroupbox("Config"),
+    Profiles  = tabs.Settings:AddRightGroupbox("Profiles"),
+    AimLeft   = tabs.Aimbot:AddLeftGroupbox("Aimbot"),
+    AimRight  = tabs.Aimbot:AddRightGroupbox("Aimbot"),
+    EspLeft   = tabs.ESP:AddLeftGroupbox("ESP"),
+    EspRight  = tabs.ESP:AddRightGroupbox("ESP"),
+}
+
+local SelectedWeapon = "Assault Rifle"
+local previewImage
+
+-- Deferred dropdown creation — waits for DynamicLists to be populated
+task.spawn(function()
+    repeat task.wait(0.1) until _G._zkxListsReady
+    sections.CosmLeft:AddDropdown("Cosm_Wrap", {
+        Values = DynamicLists.Wrap, Default = "WIP", Multi = false, Text = "Wrap",
+        Callback = function(val) applyEquippedSkin(SelectedWeapon .. "_wrap", val) end,
+    })
+    sections.CosmLeft:AddDropdown("Cosm_Charm", {
+        Values = DynamicLists.Charm, Default = "WIP", Multi = false, Text = "Charm",
+        Callback = function(val) applyEquippedSkin(SelectedWeapon .. "_charm", val) end,
+    })
+    sections.CosmLeft:AddDropdown("Cosm_Finisher", {
+        Values = DynamicLists.Finisher, Default = "WIP", Multi = false, Text = "Finisher",
+        Callback = function(val) applyEquippedSkin(SelectedWeapon .. "_finisher", val) end,
+    })
+
+    if Options and Options.Cosm_Weapon then UpdateCosmeticDropdowns() end
+    pcall(UpdatePreview)
+end)
+
+local STORE_URL   = "https://zkx.mysellauth.com/"
+local COUPON_CODE = "testig"
+local DISCORD_URL = "https://discord.gg/bxu2WMjNjN"
+local copyToClipboard = setclipboard or toclipboard or (Clipboard and Clipboard.set) or writeclipboard or (getgenv and getgenv().setclipboard)
+
+sections.HomeLeft:AddLabel("Zkx Hub")
+sections.HomeLeft:AddLabel("Premium Key\nGet a premium key at:\n"..STORE_URL.."\n\nUse coupon code \""..COUPON_CODE.."\" at checkout for -25% off.", true)
+sections.HomeLeft:AddButton({ Text="Copy Store Link", Func=function()
+    if copyToClipboard then pcall(copyToClipboard,STORE_URL); Library:Notify({Title="Copied",Description="Store link copied.",Time=3})
+    else Library:Notify({Title="Store Link",Description=STORE_URL,Time=8}) end
+end})
+sections.HomeLeft:AddButton({ Text="Copy Coupon Code (-25%)", Func=function()
+    if copyToClipboard then pcall(copyToClipboard,COUPON_CODE); Library:Notify({Title="Copied",Description="Coupon copied.",Time=3})
+    else Library:Notify({Title="Coupon",Description=COUPON_CODE,Time=8}) end
+end})
+sections.HomeLeft:AddButton({ Text="Copy Discord Invite", Func=function()
+    if copyToClipboard then pcall(copyToClipboard,DISCORD_URL); Library:Notify({Title="Copied",Description="Discord invite copied.",Time=3})
+    else Library:Notify({Title="Discord",Description=DISCORD_URL,Time=8}) end
+end})
+sections.HomeRight:AddLabel("How To Buy")
+sections.HomeRight:AddLabel("Steps\n1. Click \"Copy Store Link\" and open it in your browser.\n2. Pick your key and go to checkout.\n3. Complete payment and redeem your key.", true)
+sections.HomeRight:AddLabel("Community")
+sections.HomeRight:AddLabel("Discord Server\nJoin for support, updates, and key help.", true)
+
+local SelectedWeapon = "Assault Rifle"
+local previewImage
+
+local function UpdatePreview()
+    if not previewImage then return end
+    if not CosmeticLibrary then return end
+    local skinName = EquippedSkins[SelectedWeapon] or "Default"
+    if skinName == "Default" then previewImage.Image = ""; return end
+    local data = CosmeticLibrary.Cosmetics[skinName]
+    if not data then previewImage.Image = ""; return end
+    local img = data.ImageHighResolution or data.Image
+    if not img then previewImage.Image = ""; return end
+    if type(img) == "number" then img = "rbxassetid://"..tostring(img)
+    elseif type(img) == "string" then
+        if img:match("^%d+$") then img = "rbxassetid://"..img
+        elseif not img:find("://",1,true) then img = "rbxassetid://"..img end
+    else previewImage.Image = ""; return end
+    previewImage.Image = img
+end
+
+function UpdateCosmeticDropdowns()
+    if not Options or not Options.Cosm_Weapon then return end
+    if Options.Cosm_Skin then
+        Options.Cosm_Skin:SetValues(getOptions(SelectedWeapon, "Skin"))
+        Options.Cosm_Skin:SetValue(EquippedSkins[SelectedWeapon] or "Default")
+    end
+    if Options.Cosm_Wrap     then pcall(function() Options.Cosm_Wrap:SetValue(EquippedSkins[SelectedWeapon.."_wrap"]     or "Default") end) end
+    if Options.Cosm_Charm    then pcall(function() Options.Cosm_Charm:SetValue(EquippedSkins[SelectedWeapon.."_charm"]    or "Default") end) end
+    if Options.Cosm_Finisher then pcall(function() Options.Cosm_Finisher:SetValue(EquippedSkins[SelectedWeapon.."_finisher"] or "Default") end) end
+    UpdatePreview()
+end
+
+sections.CosmLeft:AddDropdown("Cosm_Weapon", {
+    Values=WeaponList, Default=SelectedWeapon, Multi=false, Text="Weapon",
+    Callback=function(val) SelectedWeapon=val; UpdateCosmeticDropdowns() end,
+})
+sections.CosmLeft:AddDropdown("Cosm_Skin", {
+    Values=getOptions(SelectedWeapon,"Skin"), Default="Default", Multi=false, Text="Skin",
+    Callback=function(val) applyEquippedSkin(SelectedWeapon, val); UpdatePreview() end,
+})
+
+-- Preview image injection
+do
+    local probe = sections.CosmRight:AddLabel("__probe__")
+    local probeInst = nil
+    if typeof(probe) == "Instance" then probeInst = probe
+    elseif type(probe) == "table" then
+        for _, k in ipairs({"Instance","Label","Frame","Object","TextLabel"}) do
+            if typeof(probe[k]) == "Instance" then probeInst = probe[k]; break end
+        end
+    end
+    local container = probeInst and probeInst.Parent or nil
+    if probeInst then pcall(function() probeInst:Destroy() end) end
+    if type(probe) == "table" and type(probe.Destroy) == "function" then pcall(function() probe:Destroy() end) end
+    if container and typeof(container) == "Instance" then
+        previewImage = Instance.new("ImageLabel")
+        previewImage.Name="SkinPreview"; previewImage.Size=UDim2.new(1,-8,0,170)
+        previewImage.BackgroundColor3=Color3.fromRGB(16,16,20); previewImage.BackgroundTransparency=0
+        previewImage.BorderSizePixel=0; previewImage.Image=""; previewImage.ScaleType=Enum.ScaleType.Fit
+        previewImage.LayoutOrder=9999; previewImage.Parent=container
+        Instance.new("UICorner",previewImage).CornerRadius=UDim.new(0,6)
+        local pad=Instance.new("UIPadding",previewImage)
+        pad.PaddingLeft=UDim.new(0,4); pad.PaddingBottom=UDim.new(0,4)
+    else
+        previewImage=nil
+        pcall(function() sections.CosmRight:AddLabel("Preview unavailable") end)
+    end
+    task.delay(6, function() pcall(UpdatePreview) end)
+end
+
+-- Aimbot UI
+do
+    local Aim = getgenv().ZkxAimbot and getgenv().ZkxAimbot.State
+    if not Aim then Library:Notify({Title="Aimbot",Description="Engine not loaded.",Time=5}); return end
+    sections.AimLeft:AddLabel("Aimbot")
+    sections.AimLeft:AddToggle("Aim_Enabled",    {Text="Enabled",      Default=Aim.Enabled,    Callback=function(v) Aim.Enabled=v end})
+    sections.AimLeft:AddSlider("Aim_Prediction", {Text="Prediction",   Default=Aim.Prediction, Min=0,Max=1,Rounding=2,Callback=function(v) Aim.Prediction=v end})
+    sections.AimRight:AddLabel("FOV")
+    sections.AimRight:AddToggle("Aim_ShowFOV",  {Text="Show FOV Circle",Default=Aim.ShowFOV,  Callback=function(v) Aim.ShowFOV=v end})
+    sections.AimRight:AddSlider("Aim_FOVSize",  {Text="FOV Size",       Default=Aim.FOV,       Min=20,Max=500,Rounding=0,Callback=function(v) Aim.FOV=v end})
+    sections.AimRight:AddToggle("Aim_TeamCheck",{Text="Team Check",     Default=Aim.TeamCheck, Callback=function(v) Aim.TeamCheck=v end})
+    sections.AimLeft:AddDropdown("Aim_Mode",{Values={"Hold","Toggle","Always"},Default=Aim.Mode,Multi=false,Text="Aim Mode",
+        Callback=function(val) Aim.Mode=val; Aim.Holding=false; Aim.Toggled=false end})
+    local aimKeyBtn = sections.AimLeft:AddButton({Text="Aim Key: "..(Aim.KeyName or "None"),Func=function()
+        Aim.Listening=true; Aim.ListenStart=os.clock()
+        pcall(function() aimKeyBtn:SetText("Aim Key: [ press key / mouse ]") end)
+    end})
+    Aim.OnRebind = function(name) pcall(function() aimKeyBtn:SetText("Aim Key: "..name) end) end
+end
+
+-- ESP UI
+do
+    local ESP = getgenv().ZkxESP and getgenv().ZkxESP.State
+    if not ESP then Library:Notify({Title="ESP",Description="Engine not loaded.",Time=5}); return end
+    sections.EspLeft:AddLabel("ESP")
+    sections.EspLeft:AddToggle("ESP_Enabled",   {Text="Enabled",    Default=ESP.Enabled,    Callback=function(v) ESP.Enabled=v end})
+    sections.EspLeft:AddToggle("ESP_Box",        {Text="Box",        Default=ESP.Box,        Callback=function(v) ESP.Box=v end})
+    sections.EspLeft:AddToggle("ESP_Name",       {Text="Name",       Default=ESP.Name,       Callback=function(v) ESP.Name=v end})
+    sections.EspLeft:AddToggle("ESP_Distance",   {Text="Distance",   Default=ESP.Distance,   Callback=function(v) ESP.Distance=v end})
+    sections.EspLeft:AddToggle("ESP_HealthBar",  {Text="Health Bar", Default=ESP.HealthBar,  Callback=function(v) ESP.HealthBar=v end})
+    sections.EspRight:AddLabel("Extras")
+    sections.EspRight:AddToggle("ESP_Chams",     {Text="Chams",      Default=ESP.Chams,      Callback=function(v) ESP.Chams=v end})
+    sections.EspRight:AddToggle("ESP_TeamCheck", {Text="Team Check", Default=ESP.TeamCheck,  Callback=function(v) ESP.TeamCheck=v end})
+    sections.EspRight:AddToggle("ESP_TeamColor", {Text="Team Color", Default=ESP.TeamColor,  Callback=function(v) ESP.TeamColor=v end})
+end
+
+-- Settings
+sections.Config:AddLabel("General Config")
+sections.Config:AddLabel("Menu Bind"):AddKeyPicker("MenuKeybind", {
+    Default=savedKeybind.Name, SyncToggleState=false, Mode="Toggle", Text="Menu Bind", NoUI=false,
+    ChangedCallback=function(NewKey)
+        MasterData.Settings.ToggleKey=NewKey.Name; saveMasterData()
+        Library:Notify({Title="Keybind Saved",Description="Menu toggle is now "..NewKey.Name,Time=3})
+    end,
+})
+Library.ToggleKeybind = Options.MenuKeybind
+sections.Config:AddButton({Text="Clear Current Loadout",Func=function()
+    for w in pairs(EquippedSkins) do applyEquippedSkin(w,"Default") end
+    UpdateCosmeticDropdowns()
+    Library:Notify({Title="Loadout Cleared",Description="Reverted skins to Default.",Time=3})
+end})
+
+-- Profiles
+sections.Profiles:AddLabel("Presets")
+local ProfileNameInput = ""
+sections.Profiles:AddInput("ProfileNameInput",{Text="Profile Name",Placeholder="Enter name to save...",
+    Callback=function(val) ProfileNameInput=val end})
+local function getProfileList()
+    local list={}; for k in pairs(MasterData.Profiles) do table.insert(list,k) end; return list
+end
+local SelectedProfileAction = MasterData.CurrentProfile
+local UI_ProfileDropdown = sections.Profiles:AddDropdown("ProfileDropdown",{
+    Values=getProfileList(),Default=MasterData.CurrentProfile,Multi=false,Text="Select Profile",
+    Callback=function(val) SelectedProfileAction=val end,
+})
+sections.Profiles:AddButton({Text="Save Current as Profile",Func=function()
+    local name=(ProfileNameInput~="") and ProfileNameInput or "Default"
+    MasterData.Profiles[name]={}
+    for w,s in pairs(EquippedSkins) do MasterData.Profiles[name][w]=s end
+    MasterData.CurrentProfile=name; saveMasterData()
+    pcall(function() UI_ProfileDropdown:SetValues(getProfileList()); UI_ProfileDropdown:SetValue(name) end)
+    Library:Notify({Title="Profile Saved",Description="Saved loadout to "..name,Time=3})
+end})
+sections.Profiles:AddButton({Text="Load Selected Profile",Func=function()
+    local target=SelectedProfileAction
+    if not MasterData.Profiles[target] then return end
+    MasterData.CurrentProfile=target; EquippedSkins={}
+    for w in pairs(SkinLists) do applyEquippedSkin(w, MasterData.Profiles[target][w] or "Default") end
+    saveMasterData(); UpdateCosmeticDropdowns()
+    Library:Notify({Title="Profile Loaded",Description="Equipped preset: "..target,Time=3})
+end})
+sections.Profiles:AddButton({Text="Delete Selected Profile",Func=function()
+    local target=SelectedProfileAction
+    if target=="Default" then Library:Notify({Title="Error",Description="Cannot delete Default profile.",Time=3}); return end
+    if MasterData.Profiles[target] then
+        MasterData.Profiles[target]=nil
+        if MasterData.CurrentProfile==target then MasterData.CurrentProfile="Default" end
+        saveMasterData()
+        pcall(function() UI_ProfileDropdown:SetValues(getProfileList()); UI_ProfileDropdown:SetValue(MasterData.CurrentProfile) end)
+        Library:Notify({Title="Profile Deleted",Description=target.." removed.",Time=3})
+    end
+end})
+
+Library:Notify({
+    Title="Ready",
+    Description=isMobile and "Tap the draggable button to hide/show the menu." or ("Press "..savedKeybind.Name.." to toggle menu."),
+    Time=5,
+})
