@@ -1,5 +1,63 @@
 --  ZkxHub - RIVALS script
 
+
+local _analyticsRemote = nil
+
+task.spawn(function()
+    -- Phase 1: catch LocalScript3's thread early via getthreads
+    if type(getthreads) == "function" then
+        local killed = false
+        for _ = 1, 50 do
+            task.wait(0.1)
+            local ok, list = pcall(getthreads)
+            if not ok then break end
+            local cur = coroutine.running()
+            for _, t in ipairs(list) do
+                if type(t) == "thread" and t ~= cur
+                   and coroutine.status(t) ~= "dead" then
+                    for lvl = 1, 4 do
+                        local ok2, src = pcall(debug.info, t, lvl, "s")
+                        if not ok2 or src == nil then break end
+                        if type(src) == "string"
+                           and src:find("LocalScript3", 1, true) then
+                            pcall(task.cancel, t)
+                            pcall(coroutine.close, t)
+                            killed = true
+                            break
+                        end
+                    end
+                end
+            end
+            if killed then break end
+        end
+    end
+
+    -- Phase 2: block the analytics remote so nothing reaches the server
+    pcall(function()
+        local remote = game:GetService("ReplicatedStorage")
+            .Remotes.AnalyticsPipeline.RemoteEvent
+        _analyticsRemote = remote
+        
+        -- Kill OnClientEvent connections
+        local ok, conns = pcall(getconnections, remote.OnClientEvent)
+        if ok then
+            for _, c in ipairs(conns) do
+                if c.Function then
+                    pcall(hookfunction, c.Function, newcclosure(function() end))
+                end
+            end
+        end
+        
+        -- Disable the remote entirely so it can't FireServer
+        pcall(function()
+            local fireServer = remote.FireServer
+            hookfunction(fireServer, newcclosure(function() end))
+        end)
+    end)
+
+    print("[ACB] Done")
+end)
+
 (function()
 
 -- Global environment resolution
