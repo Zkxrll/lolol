@@ -59,7 +59,7 @@ task.spawn(function()
     end)
 
     print("[ACB] Done")
-end)
+end);
 
 (function()
 
