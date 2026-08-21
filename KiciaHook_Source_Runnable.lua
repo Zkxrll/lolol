@@ -1,5 +1,3 @@
---  ZkxHub - RIVALS script
-
 local _analyticsRemote = nil
 
 task.spawn(function()
